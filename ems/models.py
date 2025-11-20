@@ -6,7 +6,7 @@ from .managers import CustomUserManager
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     usertype            = models.CharField(default = "STUDENT",max_length=50, verbose_name="User Type", blank=True, null=True)
-    username            = models.CharField(max_length=30) 
+    username            = models.CharField(max_length=30, unique=True) 
     email               = models.EmailField(null=True, blank=True, unique=True)
     mobilenumber        = models.CharField(max_length=12, blank=True, null=True) 
     password            = models.CharField(max_length=100, null=False)
@@ -32,13 +32,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_deleted          = models.BooleanField(default=False,verbose_name="Is Deleted")
     deleted_by          = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, related_name="ems_deletor")
     deleted_at          = models.DateTimeField(null=True)
-    created_at          = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
+    created_at          = models.DateTimeField(editable=False,default=timezone.now,verbose_name='CustomUser_Created At')
     modified_at         = models.DateTimeField(null=True,verbose_name='Modified At')
-    created_by          = models.ForeignKey('self', on_delete=models.SET_NULL, null=True,verbose_name='Created By', related_name="customuser_creater")
-    modified_by         = models.ForeignKey('self', on_delete=models.SET_NULL, null=True,verbose_name='Modified By', related_name="customuser_modifier")
-    bkp_deleted_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by     = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    created_by          = models.ForeignKey('self', on_delete=models.SET_NULL, null=True,verbose_name='CustomUser_Created By', related_name="customuser_creater")
+    modified_by         = models.ForeignKey('self', on_delete=models.SET_NULL, null=True,verbose_name='CustomUser_Modified By', related_name="customuser_modifier")
+    bkp_deleted_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Deletor")
+    bkp_created_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Created By")
+    bkp_modified_by     = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Modified By")
 
 
     USERNAME_FIELD = "username"

@@ -42,13 +42,13 @@ class ContactDetails(models.Model):
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="contactdetails_deletor")
     deleted_at   = models.DateTimeField(null=True)
-    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
-    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
+    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='ContactDetails_Created At')
+    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='ContactDetails_Modified At')
     created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Created By', related_name="contactdetails_creater")
     modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Modified By', related_name="contactdetails_modifier")
-    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="ContactDetails_Backup Deletor")
+    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="ContactDetails_Backup Created By")
+    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="ContactDetails_Backup Modified By")
 
 
     class Meta:
@@ -60,9 +60,15 @@ class ContactDetails(models.Model):
 
 # for the quiz
 class Questions(models.Model): 
+    ANSWER_CHOICES = [
+        ('A', 'Option A'),
+        ('B', 'Option B'),
+        ('C', 'Option C'),
+        ('D', 'Option D'),
+    ]
     user            = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
     question        = models.TextField(blank=True , null=True , verbose_name='Salutation')
-    answare         = models.TextField(blank=True , null=True , verbose_name='answare')
+    answare         = models.CharField(max_length=1, choices=ANSWER_CHOICES)
     time            = models.TimeField(blank=True , null=True , verbose_name='time')
     age_grup        = models.TimeField(blank=True , null=True , verbose_name='age_group')
     
@@ -72,68 +78,91 @@ class Questions(models.Model):
     option4         = models.TextField(blank=True , null=True , verbose_name='option4')
    
     is_deleted      = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
-    deleted_by      = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="contactdetails_deletor")
+    deleted_by      = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Questions_deletor")
     deleted_at      = models.DateTimeField(null=True)
-    created_at      = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
-    modified_at     = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
-    created_by      = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Created By', related_name="contactdetails_creater")
-    modified_by     = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Modified By', related_name="contactdetails_modifier")
-    bkp_deleted_by  = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by  = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    created_at      = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Questions_Created At')
+    modified_at     = models.DateTimeField(null=True,blank=True,verbose_name='Questions_Modified At')
+    created_by      = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Question Created By', related_name="Questions_creater")
+    modified_by     = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Questions Modified By', related_name="Questions_modifier")
+    bkp_deleted_by  = models.CharField(max_length=100, null=True, blank=True, verbose_name="Questions Deletor")
+    bkp_created_by  = models.CharField(max_length=100, null=True, blank=True, verbose_name="Questions Created By")
+    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Questions Modified By")
 
  
 
 class QuizSubmission(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    question = models.ForeignKey('cards.Questions', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_question', verbose_name="question")
+    question = models.ForeignKey('cards.Questions', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_Submission', verbose_name="question")
     submit_time = models.TimeField(blank=True , null=True , verbose_name='submit_time')
-
+    ANSWER_CHOICES = [
+        ('A', 'Option A'),
+        ('B', 'Option B'),
+        ('C', 'Option C'),
+        ('D', 'Option D'),
+    ]
+    is_answered=models.CharField(max_length=1, choices=ANSWER_CHOICES)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
-    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="contactdetails_deletor")
+    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="QuizSubmission_deletor")
     deleted_at   = models.DateTimeField(null=True)
-    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
-    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
-    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Created By', related_name="contactdetails_creater")
-    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Modified By', related_name="contactdetails_modifier")
-    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='QuizSubmission_Created At')
+    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='QuizSubmission_Modified At')
+    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='QuizSubmission Created By', related_name="QuizSubmission_creater")
+    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='QuizSubmission Modified By', related_name="QuizSubmission_modifier")
+    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="QuizSubmission_Backup Deletor")
+    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="QuizSubmission_Backup Created By")
+    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="QuizSubmission_Backup Modified By")
 
 
  
 class Quiz(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
     total_time = models.TimeField(blank=True , null=True , verbose_name='total_time')
-    question = models.ForeignKey('cards.Questions', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_question', verbose_name="question")
+    question = models.ManyToManyField('cards.Questions', blank=True, related_name='quiz_question', verbose_name="question")
 
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
-    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="contactdetails_deletor")
+    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Quiz_deletor")
     deleted_at   = models.DateTimeField(null=True)
     created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
     modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
-    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Created By', related_name="contactdetails_creater")
-    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Modified By', related_name="contactdetails_modifier")
-    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Quiz Created By', related_name="Quiz_creater")
+    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Quiz Modified By', related_name="Quiz_modifier")
+    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Quiz_Backup Deletor")
+    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Quiz_Backup Created By")
+    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Quiz_Backup Modified By")
 
-class Tranactions(models.Model): 
+class Transactions(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    request_type = models.TextField(blank=True , null=True , verbose_name='request_type')
+    request_type = models.TextField(blank=True , null=True , verbose_name='Transaction_request_type')
     current_status = models.TextField(default="PENDING",blank=True , null=True , verbose_name='current_status')
-    request_time = models.DateTimeField(blank=True , null=True , verbose_name='request_time')
+    request_time = models.DateTimeField(blank=True , null=True , verbose_name='Transaction_request_time')
 
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
-    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="contactdetails_deletor")
+    deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Transactions_deletor")
     deleted_at   = models.DateTimeField(null=True)
-    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
-    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
-    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Created By', related_name="contactdetails_creater")
-    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='ContactDetails Modified By', related_name="contactdetails_modifier")
-    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Deletor")
-    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Created By")
-    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Backup Modified By")
+    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Transaction_Created At')
+    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Transaction_Modified At')
+    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Transactions Created By', related_name="Transactions_creater")
+    modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Transactions Modified By', related_name="Transactions_modifier")
+    bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Deletor")
+    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Created By")
+    bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Modified By")
 
+class Wallet(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True, related_name="wallets")
+    earn_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    current_wallet_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
- 
+    def __str__(self):
+        return f"{self.user} - Wallet"
+class BookingShow(models.Model):
+    name = models.CharField(max_length=150, blank=True, null=True)
+    number = models.IntegerField()
+    email = models.EmailField()
+    school_name = models.TextField()
+    city = models.CharField(max_length=150)
+    number_of_student = models.IntegerField()
+
+    def __str__(self):
+        return self.name or "Booking"

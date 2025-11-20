@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.core.mail import send_mail
@@ -27,7 +27,7 @@ import io
 from django.views.generic.base import RedirectView
 from django.shortcuts import get_object_or_404
 
-
+from django.db import transaction
  
 class AddContactDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -83,3 +83,102 @@ class PutContactDetails(APIView):
             print("ContactDetails serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
 
+class AddQuestions(APIView):
+    permission_classes=[IsAdminUser]
+    def post(self,request):
+        try:
+            serializers=QuestionsSerializer(data=request.data)
+            if serializers.is_valid():
+                with transaction.atomic():
+                    serializers.save()
+                    return Response({"status":"success","data":serializers.data},status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "status":"serializer Error",
+                    "details":serializers.errors
+                },status=status.HTTP_400_BAD_REQUEST)   
+        except Exception as e:
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )         
+ 
+class UpdateQuestion(APIView):
+    permission_classes = [IsAdminUser]
+
+    def put(self, request, pk, format=None):
+        try:
+            # Get instance
+            try:
+                instance = Questions.objects.get(id=pk)
+            except Questions.DoesNotExist:
+                return Response(
+                    {"status": "error", "message": "Question not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = QuestionsSerializer(instance, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                with transaction.atomic():
+                    serializer.save()
+
+                return Response(
+                    {"status": "success", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(
+                {"status": "serializer error", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            return Response(
+                {"status": "error", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class GetQuestion(ListAPIView):
+    queryset = Questions.objects.filter(is_deleted=False)
+    serializer_class = QuestionsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # get today's date
+        today = timezone.now().date()
+
+        # Apply base queryset + valid_upto filter
+        queryset = self.queryset.filter(valid_upto__gte=today)
+
+        return queryset
+             
+class DeleteQuestion(APIView):
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, pk):
+        try:
+            try:
+                instance = Questions.objects.get(id=pk)
+            except Questions.DoesNotExist:
+                return Response(
+                    {"status": "error", "message": "Question not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            with transaction.atomic():
+                instance.delete()
+
+            return Response(
+                {"status": "success", "message": "Question deleted successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"status": "error", "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
