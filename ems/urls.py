@@ -10,4 +10,6 @@ urlpatterns = [
     path('check_username/',CheckUsername.as_view()),
     path('check_useremail/',CheckUserEmail.as_view()),
     path('check_userphone/',CheckUserPhone.as_view()),
+    # for update the redux at the same time 
+    path('get_user_info/',GetUserInfo.as_view()),
 ]

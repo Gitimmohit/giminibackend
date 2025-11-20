@@ -6,22 +6,23 @@ from .managers import CustomUserManager
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     usertype            = models.CharField(default = "STUDENT",max_length=50, verbose_name="User Type", blank=True, null=True)
-    username            = models.CharField(max_length=30, unique=True) 
+    first_payment       = models.CharField(default = "NOT DONE",max_length=50, verbose_name="First Payment", blank=True, null=True)
     email               = models.EmailField(null=True, blank=True, unique=True)
     mobilenumber        = models.CharField(max_length=12, blank=True, null=True) 
+    referalcode         = models.CharField(unique=True,max_length=12, blank=True, null=True) 
+    reffered_by         = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, related_name="customuser_reffered_by")
     password            = models.CharField(max_length=100, null=False)
     title               = models.CharField(max_length=8,blank=True,null=True) 
-    firstname           = models.CharField(max_length=500, verbose_name="FIrst Name", blank=True, null=True)
-    middlename          = models.CharField(max_length=50,null=True,blank=True,verbose_name='Middle Name')  
-    lastname            = models.CharField(max_length=500, verbose_name="Last Name", blank=True, null=True)
+    fullname            = models.CharField(max_length=500, verbose_name="Full Name", blank=True, null=True)
     school_name         = models.CharField(max_length=500, verbose_name="School Name", blank=True, null=True)
     student_class       = models.CharField(max_length=500, verbose_name="Student Name", blank=True, null=True)
-    dob                 = models.DateField(editable=False,default=timezone.now,verbose_name='Date of birth')
+    dob                 = models.DateField(verbose_name='Date of birth',blank=True,null=True)
     password_changed_by = models.CharField(max_length=20,null=True,blank=True,verbose_name='Password Changed By')
     password_changed    = models.BooleanField(default=False)
     password_changed_date = models.DateTimeField(blank=True, null=True)
     is_superuser        = models.BooleanField(default=False)
-    is_staff            = models.BooleanField(default=False)
+    is_approved         = models.BooleanField(default=False)
+    first_login         = models.BooleanField(default=False)
     is_active           = models.BooleanField(default=True) 
     is_payment          = models.BooleanField(default=False) 
     is_first_quiz       = models.BooleanField(default=False) 
@@ -41,13 +42,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     bkp_modified_by     = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Modified By")
 
 
-    USERNAME_FIELD = "username"
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.username
+        return self.email
     
 class OTPRecord(models.Model):
     email   = models.EmailField(null=True, blank=True, )

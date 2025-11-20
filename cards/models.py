@@ -132,15 +132,17 @@ class Quiz(models.Model):
 
 class Transactions(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    request_type = models.TextField(blank=True , null=True , verbose_name='Transaction_request_type')
+    request_type = models.CharField(max_length=100,blank=True , null=True , verbose_name='equest_type')
     current_status = models.TextField(default="PENDING",blank=True , null=True , verbose_name='current_status')
-    request_time = models.DateTimeField(blank=True , null=True , verbose_name='Transaction_request_time')
+    request_time = models.DateTimeField(blank=True , null=True , verbose_name='request_time')
+    transactionId = models.CharField(max_length=100,blank=True , null=True , verbose_name='transactionId')
 
+    is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Transactions_deletor")
     deleted_at   = models.DateTimeField(null=True)
-    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Transaction_Created At')
-    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Transaction_Modified At')
+    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
+    modified_at  = models.DateTimeField(null=True,blank=True,verbose_name='Modified At')
     created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Transactions Created By', related_name="Transactions_creater")
     modified_by  = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='Transactions Modified By', related_name="Transactions_modifier")
     bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Deletor")
@@ -156,6 +158,8 @@ class Wallet(models.Model):
 
     def __str__(self):
         return f"{self.user} - Wallet"
+
+        
 class BookingShow(models.Model):
     name = models.CharField(max_length=150, blank=True, null=True)
     number = models.IntegerField()

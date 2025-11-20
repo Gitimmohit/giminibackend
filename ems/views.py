@@ -21,6 +21,7 @@ from rest_framework.exceptions import APIException
 # from core.common import get_financial_year, get_fy_month_year
 from django.http import JsonResponse
 from .models import *
+from .serializer import *
 import random
 import string
 from django.db import transaction
@@ -39,11 +40,11 @@ class SendOTPAPIView(APIView):
 
         # Extract email and username
         email = request.data.get('email')
-        username = request.data.get('username')
+        
 
         # Validate email and username
-        if not email or not username:
-            return Response({'error': 'Email and username are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         print("EMAIL====", email)
 
@@ -58,11 +59,14 @@ class SendOTPAPIView(APIView):
         try:
             # Store OTP and token in the database within an atomic transaction
             with transaction.atomic():
+                # if otp is already their then then delete first and then create 
+                OTPRecord.objects.filter(email=email).delete()
+
                 OTPRecord.objects.create(email=email, token=token, otp=otp)
 
             # Compose email content
             recipients = [email]
-            email_body = render_to_string('RegistrationOTP.html', {'user_name': username, 'otp_code': otp})
+            email_body = render_to_string('RegistrationOTP.html', {'email': email, 'otp_code': otp})
             plain_message = strip_tags(email_body)
 
             print("otp--", otp)
@@ -85,6 +89,16 @@ class SendOTPAPIView(APIView):
             print(f"Error sending OTP: {e}")
             return Response({'error': 'Failed to send OTP, please try again later.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+# for referral code 
+
+def generate_unique_referral_code():
+    characters = string.ascii_uppercase + string.digits  # A-Z + 0-9
+    
+    while True:
+        code = ''.join(random.choices(characters, k=10))  # 10-character alphanumeric
+        
+        if not CustomUser.objects.filter(referalcode=code).exists():
+            return code
 
 class VerifyOTPAPIView(APIView):
     def post(self, request):
@@ -92,8 +106,12 @@ class VerifyOTPAPIView(APIView):
         email = request.data.get('email')
         otp_entered = request.data.get('otp')
         token = request.data.get('token')
-        username = request.data.get('username')
         password = request.data.get('password')
+        referralCode = request.data.get('referralCode')
+        school_name = request.data.get('school_name')
+        fullname = request.data.get('fullname')
+        usertype = request.data.get('usertype')
+        dob = request.data.get('dob')
         mobilenumber = request.data.get('mobilenumber')
 
         try:
@@ -102,10 +120,26 @@ class VerifyOTPAPIView(APIView):
             return JsonResponse({'error': 'Invalid token or email!'},)
         
         try:
+            print("otp_entered==",otp_entered,otp_record.otp)
             if otp_entered == otp_record.otp:
+                print("first")
                 # OTP is correct, hash the password and create user 
+                refferal = CustomUser.objects.filter(referalcode = referralCode).first()
+                referalcode = generate_unique_referral_code()
                 hashed_password = make_password(password)
-                CustomUser.objects.create(email=email, password=hashed_password,username=username,mobilenumber=mobilenumber)
+
+                CustomUser.objects.create(
+                    email=email, 
+                    password=hashed_password,
+                    mobilenumber=mobilenumber,
+                    referalcode=referalcode,
+                    reffered_by_id = refferal.id if refferal else None,
+                    school_name=school_name,
+                    fullname=fullname,
+                    dob=dob,
+                    usertype=usertype,
+                    )
+                print("second")
                 
                 # Delete OTP record from the database
                 otp_record.delete()
@@ -117,12 +151,15 @@ class VerifyOTPAPIView(APIView):
             print(f"An error occurred: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# ================================ this is the login view ok 
 class GetLoginToken(APIView):
     def post(self, request):
         try:
             print("request.user", request.data)
-            user = CustomUser.objects.filter(username__iexact=request.data.get("username"), is_deleted=False).first()
+            user = CustomUser.objects.filter(email__iexact=request.data.get("username"), is_deleted=False).first()
             print("user=====", user)
+            serialized_user = CustomUserSerializer(user).data
             password = request.data.get("password")
             channel_access = request.data.get("channel_access")
             if user is not None and user.check_password(password):
@@ -133,6 +170,7 @@ class GetLoginToken(APIView):
                             'refresh': str(refresh),
                             'access': str(refresh.access_token),
                             'first_login': str(True), 
+                            'user_data':serialized_user,
                         }
                         return Response(context, status.HTTP_200_OK)
                     else:
@@ -141,6 +179,7 @@ class GetLoginToken(APIView):
                             'refresh': str(refresh),
                             'access': str(refresh.access_token),
                             'first_login': str(False), 
+                            'user_data':serialized_user,
                         }
                         user.last_login = timezone.now()
                         user.save()
@@ -160,6 +199,55 @@ class GetLoginToken(APIView):
             # Handle the exception here
             raise APIException(detail=str(e))
         
+
+class GetUserInfo(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        try:
+            print("request.user", request.data)
+            user = CustomUser.objects.filter(email__iexact=request.data.get("username"), is_deleted=False).first()
+            print("user=====", user)
+            serialized_user = CustomUserSerializer(user).data
+            if user is not None:
+                if user.is_active: 
+                    if user.first_login:
+                        refresh = RefreshToken.for_user(user)
+                        context = {
+                            'refresh': str(refresh),
+                            'access': str(refresh.access_token),
+                            'first_login': str(True), 
+                            'user_data':serialized_user,
+                        }
+                        return Response(context, status.HTTP_200_OK)
+                    else:
+                        refresh = RefreshToken.for_user(user)
+                        context = {
+                            'refresh': str(refresh),
+                            'access': str(refresh.access_token),
+                            'first_login': str(False), 
+                            'user_data':serialized_user,
+                        }
+                        user.last_login = timezone.now()
+                        user.save()
+                        return Response(context, status.HTTP_200_OK) 
+                else:
+                    context = {
+                        "message": "Please verify your account first!"
+                    }
+                    return Response(context, status.HTTP_203_NON_AUTHORITATIVE_INFORMATION)
+            else:
+                context = {
+                    "detail": "No active account found with the given credentials"
+                }
+                return Response(context, status.HTTP_401_UNAUTHORIZED)
+        except Exception as e:
+            print("Exception:", str(e)) 
+            raise APIException(detail=str(e))
+   
+
+
+
+
 class Add_LoginDetail(APIView):
     permission_classes = [IsAuthenticated]
     

@@ -21,6 +21,7 @@ from django.db.models import F
 # from core.common import get_financial_year, get_fy_month_year
 from django.http import JsonResponse
 from .models import * 
+from ems.models import * 
 from django.http import HttpResponse
 from django.core.exceptions import ObjectDoesNotExist
 import io
@@ -182,3 +183,51 @@ class DeleteQuestion(APIView):
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+
+
+class AddPayment(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        print("AddContactDetails REQUEST DATA==", request.data) 
+        data=request.data
+        user = request.data.get('user',None)
+        data['current_status'] = "PENDING"
+        
+        transactions_instance = Transactions.objects.filter(is_first_transaction = True,user_id = user).first()
+        if transactions_instance :
+            serializer = TransactionsSerializer(transactions_instance,data=request.data, partial=True)
+        else:
+            serializer = TransactionsSerializer(data=request.data, partial=True)
+
+        if serializer.is_valid():
+            CustomUser.objects.filter(id = user).update(
+                is_payment = True,
+                first_payment = "DONE"
+            )
+
+            serializer.save(
+                created_by_id=request.user.id,
+                bkp_created_by=request.user.fullname.upper() if request.user.fullname else None, 
+                created_at=timezone.now(),
+                request_time = timezone.now(),
+                )
+            print("ContactDetails SERIALIZER DATA====",serializer.data)
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            print("ContactDetails SERIALIZER ERROR====",serializer.errors)
+            return Response({"status": "error", "data": serializer.errors})
+
+
+class FirstPayment(ListAPIView):
+    queryset = Transactions.objects.filter(is_first_transaction=True)
+    serializer_class = TransactionsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+
+        # Apply base queryset + valid_upto filter
+        queryset = self.queryset.filter(user_id=self.request.user.id)
+
+        return queryset

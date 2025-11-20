@@ -5,14 +5,14 @@
 <body>
     <p>Subject:Confirm Your Account Registration - One-Time Password (OTP) Verification</p>
 
-    <p>Dear {{ user_name }},</p>
+    <p>Dear {{ email }},</p>
 
     <p>Thank you for signing up with <a href="https://www.rvs.com/"> https://www.rvs.com/ </a>. We are thrilled to have you join our community!</p>
 
     <p>To complete the registration process and ensure the security of your account, please verify your email address by entering the one-time password (OTP) provided below:</p>
     <p><strong>One-Time Password (OTP):</strong></p>
     <ul>
-        <li>Username: {{ user_name }}</li>
+        <li>Username: {{ email }}</li>
         <li>OTP : {{ otp_code }}</li> 
     </ul> 
 
