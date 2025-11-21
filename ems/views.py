@@ -26,7 +26,7 @@ import random
 import string
 from django.db import transaction
 import os
-
+from cards.mypaginations import MyPageNumberPagination
 
 # Function to generate OTP 
 from .models import CustomUser, OTPRecord  # Assuming you have these models defined
@@ -247,9 +247,40 @@ class GetUserInfo(APIView):
             raise APIException(detail=str(e))
    
 
+class GetUserDetails(ListAPIView):
+    # permission_classes = [IsAuthenticated]
+    queryset = CustomUser.objects.select_related('created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = CustomUserSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['usertype', 'email', 'mobilenumber','fullname','school_name']
+ 
+    def get_queryset(self):
+        queryset = self.queryset.filter()
+        return queryset
 
+class PutUserDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def put(self,request,pk,format=None): 
+        instance = CustomUser.objects.get(id=pk) 
+        serializer = CustomUserSerializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+        else:
+            print("User serializer.errors", serializer.errors)
+            return Response({"status": "error", "data": serializer.errors},)
 
-
+class DeleteUserDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        data = request.data['data'] 
+        for i in data:   
+            CustomUser.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+        return Response(status=status.HTTP_200_OK)
+    
 class Add_LoginDetail(APIView):
     permission_classes = [IsAuthenticated]
     

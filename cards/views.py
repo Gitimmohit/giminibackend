@@ -325,3 +325,12 @@ class PutQuizDetails(APIView):
         else:
             print("Quiz serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
+        
+class DeleteQuizDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        data = request.data['data'] 
+        for i in data:   
+            Quiz.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+        return Response(status=status.HTTP_200_OK)

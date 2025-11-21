@@ -12,4 +12,7 @@ urlpatterns = [
     path('check_userphone/',CheckUserPhone.as_view()),
     # for update the redux at the same time 
     path('get_user_info/',GetUserInfo.as_view()),
+    path('get_user_details/',GetUserDetails.as_view()),
+    path('put_user_details/<int:pk>',PutUserDetails.as_view()),
+    path('delete_user_details/', DeleteUserDetails.as_view()),
 ]
