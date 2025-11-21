@@ -251,8 +251,31 @@ class GetQuestionsDetails(ListAPIView):
     serializer_class = QuestionsSerializer
     pagination_class = MyPageNumberPagination
     filter_backends = [SearchFilter]
-    search_fields = ['question', 'answare', 'user__username', 'age_grup', 'option1', 'option2']
+    search_fields = ['question', 'answare', 'age_grup', 'option1', 'option2']
  
     def get_queryset(self):
         queryset = self.queryset.filter()
         return queryset
+    
+class DeleteQuestionsDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        data = request.data['data'] 
+        for i in data:  
+            # Soft delete Questions
+            Questions.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+        return Response(status=status.HTTP_200_OK)
+    
+class PutQuestionDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def put(self,request,pk,format=None): 
+        instance = Questions.objects.get(id=pk) 
+        serializer = QuestionsSerializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+        else:
+            print("ContactDetails serializer.errors", serializer.errors)
+            return Response({"status": "error", "data": serializer.errors},)

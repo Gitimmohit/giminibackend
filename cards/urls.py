@@ -11,7 +11,9 @@ urlpatterns = [
     path('getfirst_payment_receipt/', FirstPayment.as_view()),
 
     path('add_question_details/', AddQuestionDetails.as_view()), 
+    path('put_question_details/<int:pk>', PutQuestionDetails.as_view()),
     path('get_question_details/', GetQuestionsDetails.as_view()),
+    path('delete_question_details/', DeleteQuestionsDetails.as_view()),
 
 
 ]
