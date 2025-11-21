@@ -12,9 +12,9 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 import os
-import boto3
 from datetime import timedelta 
 from .credentials import *
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,10 +24,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-%ctqp-qk*-d2xhmnl1#x&02%@-)ndr5432swlnt2h&=y$gq)^0'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = ['*'] 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     "rest_framework",
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
-    'storages',
     'ems',
     'cards',
 ]
@@ -99,14 +98,21 @@ REST_FRAMEWORK = {
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
+DBENGINE = config('DBENGINE')
+DBNAME = config('DBNAME')
+DBUSER = config('DBUSER')
+DBPASSWORD = config('DBPASSWORD')
+DBHOST = config('DBHOST')
+DBPORT = config('DBPORT')
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'gimini',
-        'USER': 'postgres',
-        'PASSWORD': '123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+    "default": {
+        "ENGINE": DBENGINE,
+        "NAME": DBNAME,
+        "USER": DBUSER,
+        "PASSWORD": DBPASSWORD,
+        "HOST": DBHOST,
+        "PORT": DBPORT,
     }
 }
 
@@ -151,11 +157,7 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'  
-
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
  
-
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
@@ -165,10 +167,10 @@ SIMPLE_JWT = {
 MEDIA_ROOT =BASE_DIR /"media"
 MEDIA_URL ="/media/"
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
-EMAIL_HOST_USER = 'mohitetechcube@gmail.com'
-EMAIL_HOST_PASSWORD = 'lhtnfpnwogjmmzyk'  # App-specific password, not your normal Gmail password
-EMAIL_USE_SSL = False
+EMAIL_BACKEND = config('EMAIL_BACKEND')
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS')
+EMAIL_USE_SSL = config('EMAIL_USE_SSL')
+EMAIL_PORT = config('EMAIL_PORT')
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')

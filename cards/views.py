@@ -231,3 +231,28 @@ class FirstPayment(ListAPIView):
         queryset = self.queryset.filter(user_id=self.request.user.id)
 
         return queryset
+class AddQuestionDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        try:   
+            serializer = QuestionsSerializer(data=request.data)
+            if serializer.is_valid():
+                question_instance = serializer.save(created_by_id=request.user.id,bkp_created_by=request.user.username.upper(), created_at=timezone.now()) 
+                return Response({"message": "Question added successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class GetQuestionsDetails(ListAPIView):
+    # permission_classes = [IsAuthenticated]
+    queryset = Questions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = QuestionsSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['question', 'answare', 'user__username', 'age_grup', 'option1', 'option2']
+ 
+    def get_queryset(self):
+        queryset = self.queryset.filter()
+        return queryset

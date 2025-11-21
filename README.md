@@ -35,6 +35,7 @@ pip install -r requirements.txt
 
 # rm -r **/migrations
 # rm -r **/__pycache__
+# pip freeze > requirements.txt
 
 # Create tables, user and collect statics
 python manage.py makemigrations ems cards

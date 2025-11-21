@@ -70,7 +70,7 @@ class Questions(models.Model):
     question        = models.TextField(blank=True , null=True , verbose_name='Salutation')
     answare         = models.CharField(max_length=1, choices=ANSWER_CHOICES)
     time            = models.TimeField(blank=True , null=True , verbose_name='time')
-    age_grup        = models.TimeField(blank=True , null=True , verbose_name='age_group')
+    age_grup        = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
     
     option1         = models.TextField(blank=True , null=True , verbose_name='option1')
     option2         = models.TextField(blank=True , null=True , verbose_name='option2')
