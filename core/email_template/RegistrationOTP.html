@@ -1,30 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+  <meta charset="UTF-8" />
+  <title>Email Verification - Gimini Planetarium</title>
 </head>
-<body>
-    <p>Subject:Confirm Your Account Registration - One-Time Password (OTP) Verification</p>
 
-    <p>Dear {{ email }},</p>
+<body style="font-family: Arial, sans-serif; background: #f6f6f6; margin: 0; padding: 0;">
 
-    <p>Thank you for signing up with <a href="https://www.rvs.com/"> https://www.rvs.com/ </a>. We are thrilled to have you join our community!</p>
+  <div
+    style="max-width: 600px; margin: 30px auto; background: #ffffff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
 
-    <p>To complete the registration process and ensure the security of your account, please verify your email address by entering the one-time password (OTP) provided below:</p>
-    <p><strong>One-Time Password (OTP):</strong></p>
-    <ul>
-        <li>Username: {{ email }}</li>
-        <li>OTP : {{ otp_code }}</li> 
-    </ul> 
+    <h2 style="margin: 0; color: #111827; font-size: 20px;">Gimini Planetarium</h2>
+    <p style="color: #6b7280; margin-top: 4px;">Email Verification</p>
 
-    <p>Please enter the OTP on the registration page to confirm your email address and activate your account. If you did not request this registration or encounter any issues, please disregard this email.</p>
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
 
-    <p>If you have any questions or need further assistance, feel free to reach out to our support team at <a href="mailto:info@rvs.com">info@rvs.com</a> or +91 72800 44001 ,+91 72800 44002 .</p>
-     
-    <p>Thank you for choosing  Rvs. We're excited to have you on board!</p>
+    <p style="font-size: 14px; color: #374151;">
+      Hi <strong>{{ recipient_name }}</strong>,
+    </p>
 
-    <p>Best regards,</p>
-    <h2>Rvs </h2>  
+    <p style="font-size: 14px; color: #374151;">
+      To verify your email, please use the One-Time Password (OTP) given below.
+    </p>
 
-    <p><strong>Important:</strong> This is an automated email and is not monitored. Please DO NOT reply to this email.</p>
+    <div style="text-align: center; margin: 20px 0;">
+      <div style="
+          display: inline-block;
+          background: #111827;
+          color: #ffffff;
+          padding: 12px 24px;
+          font-size: 22px;
+          letter-spacing: 4px;
+          border-radius: 6px;
+          font-weight: bold;
+        ">
+        {{ otp_code }}
+      </div>
+    </div>
+
+    <p style="font-size: 14px; color: #374151;">
+      This OTP is valid <strong>for one-time use only</strong>.
+      Please enter it on the verification page to complete your registration.
+    </p>
+
+    <p style="font-size: 13px; color: #6b7280;">
+      If you did not request this, you can safely ignore this email.
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+
+    <p style="font-size: 12px; color: #9ca3af;">
+      For any assistance, contact us at
+      <a href="mailto:{{ support_email }}" style="color: #2563eb; text-decoration: none;">
+        {{ support_email }}
+      </a>
+    </p>
+
+  </div>
+
+  <p style="text-align:center; color:#9ca3af; font-size:12px; margin-top: 10px;">
+    © {{ now.year }} Gimini Planetarium. All rights reserved.
+  </p>
+
 </body>
+
 </html>

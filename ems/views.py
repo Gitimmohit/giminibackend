@@ -40,6 +40,8 @@ class SendOTPAPIView(APIView):
 
         # Extract email and username
         email = request.data.get('email')
+        fullname = request.data.get('fullname')
+        support_email = "info@giminiplanatoriam.com"
         
 
         # Validate email and username
@@ -66,7 +68,7 @@ class SendOTPAPIView(APIView):
 
             # Compose email content
             recipients = [email]
-            email_body = render_to_string('RegistrationOTP.html', {'email': email, 'otp_code': otp})
+            email_body = render_to_string('RegistrationOTP.html', {'email': email, 'otp_code': otp,'recipient_name':fullname,'support_email':support_email,})
             plain_message = strip_tags(email_body)
 
             print("otp--", otp)
