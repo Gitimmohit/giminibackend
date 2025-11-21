@@ -26,10 +26,49 @@ import random
 import string
 from django.db import transaction
 import os
-from cards.mypaginations import MyPageNumberPagination
+from .models import CustomUser, OTPRecord 
 
-# Function to generate OTP 
-from .models import CustomUser, OTPRecord  # Assuming you have these models defined
+# for the duplicate
+class CheckDuplicateEmail(APIView):
+    def post(self, request):
+        print("request===",request.data)
+        email = request.data.get('email')
+        exclude_email = request.query_params.get('exclude',None)  # "CURRENT" email to exclude
+        update_id = request.data.get('user_ids',None) 
+        is_updating = request.query_params.get('is_updating',False) 
+        filter_wise = request.data.get('filter_wise',False) 
+        is_updating_str = False if str(is_updating).lower() == "false" else True
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        filters ={}
+        exclude_user ={}
+
+        # if account wise filter 
+        
+        if update_id:
+            exclude_user['id'] = update_id
+
+        user_query = CustomUser.objects.filter(email__iexact=email,**filters).exclude(**exclude_user)
+
+              
+        total_email = user_query.count()
+        print("total_email ====",total_email)   
+
+        if total_email >= 1 and exclude_email and not is_updating_str:
+            return Response({"duplicate": True, "message": "Email already exists"}, status=status.HTTP_200_OK)
+        
+        elif total_email >= 1 and is_updating_str:
+            return Response({"duplicate": True, "message": "Email already exists"}, status=status.HTTP_200_OK)
+        
+        elif total_email and exclude_email != "CURRENT":
+            return Response({"duplicate": True, "message": "Email already exists"}, status=status.HTTP_200_OK)
+        
+        return Response({"duplicate": False, "message": "Email is available"}, status=status.HTTP_200_OK)
+
+
+
+
+# for the otp 
 
 def generate_otp():
     return ''.join(random.choices(string.digits, k=6))

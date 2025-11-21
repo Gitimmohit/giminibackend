@@ -15,4 +15,7 @@ urlpatterns = [
     path('get_user_details/',GetUserDetails.as_view()),
     path('put_user_details/<int:pk>',PutUserDetails.as_view()),
     path('delete_user_details/', DeleteUserDetails.as_view()),
+
+    
+    path('check-duplicate-email/',CheckDuplicateEmail.as_view()),
 ]
