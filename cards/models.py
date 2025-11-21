@@ -67,7 +67,7 @@ class Questions(models.Model):
         ('D', 'Option D'),
     ]
     user            = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    question        = models.TextField(blank=True , null=True , verbose_name='Salutation')
+    question        = models.TextField(blank=True , null=True , verbose_name='Question')
     answare         = models.CharField(max_length=1, choices=ANSWER_CHOICES)
     time            = models.TimeField(blank=True , null=True , verbose_name='time')
     age_grup        = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
@@ -115,10 +115,13 @@ class QuizSubmission(models.Model):
 
  
 class Quiz(models.Model): 
-    user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    total_time = models.TimeField(blank=True , null=True , verbose_name='total_time')
-    question = models.ManyToManyField('cards.Questions', blank=True, related_name='quiz_question', verbose_name="question")
-
+    user         = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
+    total_time   = models.TimeField(blank=True , null=True , verbose_name='total_time')
+    question     = models.ManyToManyField('cards.Questions', blank=True, related_name='quiz_question', verbose_name="question")
+    quiz_name    = models.TextField(blank=True , null=True , verbose_name='Quiz Name')
+    quiz_date    = models.DateField(blank=True , null=True , verbose_name='Quiz Date')
+    age_grup     = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
+    
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Quiz_deletor")
     deleted_at   = models.DateTimeField(null=True)

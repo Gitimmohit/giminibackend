@@ -279,3 +279,49 @@ class PutQuestionDetails(APIView):
         else:
             print("ContactDetails serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
+        
+class AddQuizDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        try:   
+            serializer = QuizSerializer(data=request.data)
+            if serializer.is_valid():
+                quiz_instance = serializer.save(created_by_id=request.user.id,bkp_created_by=request.user.username.upper(), created_at=timezone.now()) 
+                return Response({"message": "Quiz added successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class GetQuizDetails(ListAPIView):
+    # permission_classes = [IsAuthenticated]
+    queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = QuizSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['quiz_name', 'quiz_date', 'age_grup']
+ 
+    def get_queryset(self):
+        queryset = self.queryset.filter()
+        return queryset
+    
+class GetQuizQuestion(APIView):
+    # permission_classes = [IsAuthenticated]
+    def get(self, request, format=None):
+        quiz_id = request.GET['quiz_id']
+        quiz_question = Quiz.objects.filter(id=quiz_id).values('question','question__question')
+        return Response({'quiz_question': quiz_question})
+    
+class PutQuizDetails(APIView):
+    # permission_classes = [IsAuthenticated]
+    
+    def put(self,request,pk,format=None): 
+        instance = Quiz.objects.get(id=pk) 
+        serializer = QuizSerializer(instance, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+        else:
+            print("Quiz serializer.errors", serializer.errors)
+            return Response({"status": "error", "data": serializer.errors},)
