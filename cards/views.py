@@ -31,6 +31,10 @@ from core.utils import hitby_user
 from django.db import transaction
 from django.db.models import Count, Q, Min, F,Max
 
+from decimal import Decimal
+
+
+ 
 class AddContactDetails(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
@@ -246,7 +250,82 @@ class AddQuestionDetails(APIView):
 
         except Exception as e:
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+class GetAllTransactions(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Transactions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = TransactionsSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['user__fullname', 'request_type', 'current_status', 'request_time', 'transactionId','transaction_amt']
+ 
+    def get_queryset(self):
+        filter_type = self.request.query_params.get('filter_type',None)
+
+        filters = {}
+        if filter_type == "USER":
+            filters['user_id'] = self.request.user.id
+
+        queryset = self.queryset.filter(**filters)
+        return queryset
+
+
+
+class PutTransactionDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def put(self, request, pk, format=None):
+        modified_by, bkp_modified_by = hitby_user(self, request)
+
+        transaction_amt = request.data.get('transaction_amt', None)
+        current_status = request.data.get('current_status')
+        is_transaction_complete = False
+        if current_status  != "PENDING":
+            is_transaction_complete = True
+
+        transaction_amt = Decimal(transaction_amt) if transaction_amt else Decimal("0")
+
+        current_instance = Transactions.objects.get(id=pk)
+        is_credit = current_instance.is_transaction_complete
+
+        serializer = TransactionsSerializer(current_instance, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save(
+                modified_by=modified_by, 
+                bkp_modified_by=bkp_modified_by, 
+                modified_at=timezone.now(),
+                is_transaction_complete = is_transaction_complete,
+            )
+            print("is_credit---",is_credit,current_status)
+            # Update wallet after approval
+            if request.data.get('request_type') == "CR" and request.data.get('current_status') == "APPROVED" and not is_credit:
+                wallet = Wallet.objects.filter(user=current_instance.user).first()
+
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount + transaction_amt
+                    wallet.save()
+                else:
+                    Wallet.objects.create(
+                        user=current_instance.user,
+                        current_wallet_amount=transaction_amt,
+                        created_at=timezone.now(),
+                    )
+            if request.data.get('request_type') == "DR" and request.data.get('current_status') == "APPROVED" and not is_credit:
+                wallet = Wallet.objects.filter(user=current_instance.user).first()
+
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount - transaction_amt
+                    wallet.save()
+                else:
+                    return Response({"status": "error", "msg": "No Amount Found"},status=status.HTTP_200_OK)
+
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({"status": "error", "data": serializer.errors})
+
+
+
 class GetQuestionsDetails(ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Questions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')

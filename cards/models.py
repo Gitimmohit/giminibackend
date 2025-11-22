@@ -143,8 +143,10 @@ class Transactions(models.Model):
     current_status = models.TextField(default="PENDING",blank=True , null=True , verbose_name='current_status')
     request_time = models.DateTimeField(blank=True , null=True , verbose_name='request_time')
     transactionId = models.CharField(max_length=100,blank=True , null=True , verbose_name='transactionId')
+    transaction_amt = models.CharField(max_length=100,blank=True , null=True , verbose_name='transaction_amt')
 
     is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
+    is_transaction_complete   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Transactions_deletor")
     deleted_at   = models.DateTimeField(null=True)
