@@ -14,7 +14,7 @@ from django.contrib.auth.hashers import *
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 import base64
 from django.core.files.base import ContentFile
-from datetime import timedelta
+from datetime import timedelta ,time
 from django.utils import timezone
 from .mypaginations import MyPageNumberPagination
 from django.db.models import F
@@ -27,7 +27,7 @@ from django.core.exceptions import ObjectDoesNotExist
 import io
 from django.views.generic.base import RedirectView
 from django.shortcuts import get_object_or_404
-
+from core.utils import hitby_user
 from django.db import transaction
  
 class AddContactDetails(APIView):
@@ -232,21 +232,22 @@ class FirstPayment(ListAPIView):
 
         return queryset
 class AddQuestionDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
-        try:   
+        try:
+            created_by, bkp_created_by = hitby_user(self,request)   
             serializer = QuestionsSerializer(data=request.data)
             if serializer.is_valid():
-                question_instance = serializer.save(created_by_id=request.user.id,bkp_created_by=request.user.username.upper(), created_at=timezone.now()) 
+                question_instance = serializer.save(created_by=created_by,bkp_created_by=bkp_created_by, created_at=timezone.now()) 
                 return Response({"message": "Question added successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class GetQuestionsDetails(ListAPIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     queryset = Questions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
     serializer_class = QuestionsSerializer
     pagination_class = MyPageNumberPagination
@@ -257,45 +258,78 @@ class GetQuestionsDetails(ListAPIView):
         queryset = self.queryset.filter()
         return queryset
     
+class GetQuestionsTransfer(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Questions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = QuestionsSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['question']
+    def get_queryset(self):
+        queryset = super().get_queryset() 
+        if self.request.GET['data'] != "all":
+            data = Quiz.objects.filter(id=self.request.GET['data']).all()
+            id_list = list(data.values_list('question__id', flat=True))
+            id_list = list(set(id_list)) 
+        if self.request.GET['data'] == "all":
+            question_filter = queryset.filter().order_by('question')
+        else:
+            question_filter = queryset.filter().exclude(id__in=id_list).order_by('question')
+        return question_filter
+    
 class DeleteQuestionsDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        deleted_by, bkp_deleted_by = hitby_user(self,request) 
         data = request.data['data'] 
         for i in data:  
             # Soft delete Questions
-            Questions.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+            Questions.objects.filter(id=i).update(is_deleted=True,deleted_by=deleted_by,bkp_deleted_by=bkp_deleted_by,deleted_at=timezone.now()) 
         return Response(status=status.HTTP_200_OK)
     
 class PutQuestionDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def put(self,request,pk,format=None): 
+        modified_by, bkp_modified_by = hitby_user(self,request) 
         instance = Questions.objects.get(id=pk) 
         serializer = QuestionsSerializer(instance, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            serializer.save(modified_by=modified_by, bkp_modified_by=bkp_modified_by, modified_at=timezone.now())
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
         else:
             print("ContactDetails serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
         
 class AddQuizDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
         try:   
+            created_by, bkp_created_by = hitby_user(self,request)   
             serializer = QuizSerializer(data=request.data)
             if serializer.is_valid():
-                quiz_instance = serializer.save(created_by_id=request.user.id,bkp_created_by=request.user.username.upper(), created_at=timezone.now()) 
+                quiz_instance = serializer.save(created_by=created_by,bkp_created_by=bkp_created_by, created_at=timezone.now()) 
+                # total_time
+                questions = quiz_instance.question.all()  
+                total_seconds = 0
+                for q in questions:
+                    if q.time:
+                        total_seconds += q.time.hour * 3600 + q.time.minute * 60 + q.time.second
+                h = total_seconds // 3600
+                m = (total_seconds % 3600) // 60
+                s = total_seconds % 60
+                quiz_instance.total_time = time(h, m, s)
+                quiz_instance.save()  # Final save – total_time  
                 return Response({"message": "Quiz added successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class GetQuizDetails(ListAPIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
     serializer_class = QuizSerializer
     pagination_class = MyPageNumberPagination
@@ -306,31 +340,44 @@ class GetQuizDetails(ListAPIView):
         queryset = self.queryset.filter()
         return queryset
     
-class GetQuizQuestion(APIView):
-    # permission_classes = [IsAuthenticated]
+class GetQuizTransfer(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request, format=None):
         quiz_id = request.GET['quiz_id']
         quiz_question = Quiz.objects.filter(id=quiz_id).values('question','question__question')
         return Response({'quiz_question': quiz_question})
     
 class PutQuizDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def put(self,request,pk,format=None): 
+        modified_by, bkp_modified_by = hitby_user(self,request) 
         instance = Quiz.objects.get(id=pk) 
         serializer = QuizSerializer(instance, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            quiz_instance = serializer.save(modified_by=modified_by, bkp_modified_by=bkp_modified_by, modified_at=timezone.now())
+            # total_time
+            questions = quiz_instance.question.all()  
+            total_seconds = 0
+            for q in questions:
+                if q.time:
+                    total_seconds += q.time.hour * 3600 + q.time.minute * 60 + q.time.second
+            h = total_seconds // 3600
+            m = (total_seconds % 3600) // 60
+            s = total_seconds % 60
+            quiz_instance.total_time = time(h, m, s)
+            quiz_instance.save()  # Final save – total_time
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
         else:
             print("Quiz serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
         
 class DeleteQuizDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
+        deleted_by, bkp_deleted_by = hitby_user(self,request) 
         data = request.data['data'] 
         for i in data:   
-            Quiz.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+            Quiz.objects.filter(id=i).update(is_deleted=True,deleted_by=deleted_by,bkp_deleted_by=bkp_deleted_by,deleted_at=timezone.now()) 
         return Response(status=status.HTTP_200_OK)

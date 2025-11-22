@@ -13,12 +13,13 @@ urlpatterns = [
     path('add_question_details/', AddQuestionDetails.as_view()), 
     path('put_question_details/<int:pk>', PutQuestionDetails.as_view()),
     path('get_question_details/', GetQuestionsDetails.as_view()),
+    path('get_question_transfer/', GetQuestionsTransfer.as_view()),
     path('delete_question_details/', DeleteQuestionsDetails.as_view()),
 
     path('add_quiz_details/', AddQuizDetails.as_view()), 
     path('put_quiz_details/<int:pk>', PutQuizDetails.as_view()),
     path('get_quiz_details/', GetQuizDetails.as_view()), 
-    path('get_quiz_question/', GetQuizQuestion.as_view()), 
+    path('get_quiz_transfer/', GetQuizTransfer.as_view()), 
     path('delete_quiz_details/', DeleteQuizDetails.as_view()),
 
 ]

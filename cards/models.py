@@ -119,7 +119,7 @@ class Quiz(models.Model):
     total_time   = models.TimeField(blank=True , null=True , verbose_name='total_time')
     question     = models.ManyToManyField('cards.Questions', blank=True, related_name='quiz_question', verbose_name="question")
     quiz_name    = models.TextField(blank=True , null=True , verbose_name='Quiz Name')
-    quiz_date    = models.DateField(blank=True , null=True , verbose_name='Quiz Date')
+    quiz_date    = models.DateTimeField(blank=True , null=True , verbose_name='Quiz Date Time')
     age_grup     = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
     
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)

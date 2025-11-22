@@ -27,6 +27,8 @@ import string
 from django.db import transaction
 import os
 from .models import CustomUser, OTPRecord 
+from cards.mypaginations import MyPageNumberPagination
+from core.utils import hitby_user 
 
 # for the duplicate
 class CheckDuplicateEmail(APIView):
@@ -287,7 +289,7 @@ class GetUserInfo(APIView):
    
 
 class GetUserDetails(ListAPIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     queryset = CustomUser.objects.select_related('created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
     serializer_class = CustomUserSerializer
     pagination_class = MyPageNumberPagination
@@ -299,25 +301,27 @@ class GetUserDetails(ListAPIView):
         return queryset
 
 class PutUserDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def put(self,request,pk,format=None): 
+        modified_by, bkp_modified_by = hitby_user(self,request) 
         instance = CustomUser.objects.get(id=pk) 
         serializer = CustomUserSerializer(instance, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save(bkp_modified_by=request.user.username.upper(), modified_by_id=request.user.id, modified_at=timezone.now())
+            serializer.save(modified_by=modified_by, bkp_modified_by=bkp_modified_by, modified_at=timezone.now())
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
         else:
             print("User serializer.errors", serializer.errors)
             return Response({"status": "error", "data": serializer.errors},)
 
 class DeleteUserDetails(APIView):
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
     
     def post(self, request):
         data = request.data['data'] 
+        deleted_by, bkp_deleted_by = hitby_user(self,request) 
         for i in data:   
-            CustomUser.objects.filter(id=i).update(is_deleted=True,deleted_by=request.user.id,bkp_deleted_by=request.user.username.upper(),deleted_at=timezone.now()) 
+            CustomUser.objects.filter(id=i).update(is_deleted=True,deleted_by=deleted_by,bkp_deleted_by=bkp_deleted_by,deleted_at=timezone.now()) 
         return Response(status=status.HTTP_200_OK)
     
 class Add_LoginDetail(APIView):
