@@ -92,15 +92,16 @@ class Questions(models.Model):
 
 class QuizSubmission(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    question = models.ForeignKey('cards.Questions', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_Submission', verbose_name="question")
-    submit_time = models.TimeField(blank=True , null=True , verbose_name='submit_time')
+    question = models.ForeignKey('cards.Questions', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_submission_question', verbose_name="question")
+    quiz = models.ForeignKey('cards.Quiz', on_delete=models.SET_NULL, null=True, blank=True, related_name='quiz_submission_quiz', verbose_name="Quiz Id")
+    submit_time = models.DateTimeField(blank=True , null=True , verbose_name='submit_time')
     ANSWER_CHOICES = [
         ('A', 'Option A'),
         ('B', 'Option B'),
         ('C', 'Option C'),
         ('D', 'Option D'),
     ]
-    is_answered=models.CharField(max_length=1, choices=ANSWER_CHOICES)
+    is_answered=models.CharField(max_length=1, choices=ANSWER_CHOICES ,null=True,blank=True)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="QuizSubmission_deletor")
     deleted_at   = models.DateTimeField(null=True)
@@ -121,6 +122,9 @@ class Quiz(models.Model):
     quiz_name    = models.TextField(blank=True , null=True , verbose_name='Quiz Name')
     quiz_date    = models.DateTimeField(blank=True , null=True , verbose_name='Quiz Date Time')
     age_grup     = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
+    prize_money  = models.TextField(blank=True , null=True ,verbose_name='Prize Money')
+    entry_fee    = models.DecimalField(max_digits=10,decimal_places=2,default=0,verbose_name='Entry Fee')
+    is_completed = models.BooleanField(default=False,verbose_name="Is Completed",null=True,blank=True,)
     
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Quiz_deletor")

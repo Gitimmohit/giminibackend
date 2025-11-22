@@ -29,7 +29,8 @@ from django.views.generic.base import RedirectView
 from django.shortcuts import get_object_or_404
 from core.utils import hitby_user
 from django.db import transaction
- 
+from django.db.models import Count, Q, Min, F,Max
+
 class AddContactDetails(APIView):
     permission_classes = [IsAuthenticated]
     def post(self, request):
@@ -347,6 +348,86 @@ class GetQuizTransfer(APIView):
         quiz_question = Quiz.objects.filter(id=quiz_id).values('question','question__question')
         return Response({'quiz_question': quiz_question})
     
+class GetQuizPlayData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quiz_id = request.GET.get('quiz_id')
+
+        if not quiz_id:
+            return Response({"success": False,"message": "quiz_id is required in query params"}, status=400)
+
+        # Quiz exist karta hai ya nahi + soft delete check
+        quiz = get_object_or_404(Quiz, id=quiz_id,)
+
+        # Saare questions jo is quiz mein hain aur deleted nahi hain
+        questions_qs = quiz.question.filter(is_deleted=False).order_by('id')
+
+        # Final data jo frontend ko exactly chahiye
+        quiz_data = []
+        for q in questions_qs:
+            time_delta = q.time
+            time_in_seconds = time_delta.hour * 3600 + time_delta.minute * 60 + time_delta.second if time_delta else 30
+            quiz_data.append({
+                "id": q.id,
+                "quiz_id": quiz_id,
+                "question": q.question or "",
+                "time":time_in_seconds,
+                "options": [
+                    {"id": "A", "text": q.option1 or ""},
+                    {"id": "B", "text": q.option2 or ""},
+                    {"id": "C", "text": q.option3 or ""},
+                    {"id": "D", "text": q.option4 or ""},
+                ],
+            })
+
+        return Response({"success": True,"quiz_name": quiz.quiz_name,"total_time": quiz.total_time.strftime("%H:%M:%S") if quiz.total_time else None,"quiz_data": quiz_data})
+    
+# class GetQuizUpcomingData(ListAPIView):
+#     permission_classes = [IsAuthenticated]
+#     queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-quiz_name')
+#     serializer_class = QuizSerializer
+#     pagination_class = MyPageNumberPagination
+#     filter_backends = [SearchFilter]
+#     search_fields = ['quiz_name', 'quiz_date', 'age_grup']
+ 
+#     def get_queryset(self):
+#         now = timezone.now() 
+#         after_24_hours = now + timedelta(hours=24)
+#         queryset = self.queryset.filter(quiz_date__gt=after_24_hours).order_by('-quiz_name')
+#         return queryset
+
+class GetQuizUpcomingData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        after_24_hours = now + timedelta(hours=24)
+        # Filter: Last 24 hours se future tak ke saare active quizzes
+        quizzes = Quiz.objects.filter(is_deleted=False,quiz_date__gt=after_24_hours).select_related('user', 'created_by', 'modified_by', 'deleted_by').order_by('-quiz_date')
+        serializer = QuizSerializer(quizzes, many=True)
+        return Response({"success": True,"count": quizzes.count(),"upcoming_quizzes": serializer.data})
+     
+class AddQuizSubmissionDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request): 
+        try:
+            created_by, bkp_created_by = hitby_user(self, request)
+            serializer = QuizSubmissionSerializer(data=request.data)
+            if serializer.is_valid():
+                submission = serializer.save(created_by=created_by,bkp_created_by=bkp_created_by,created_at=timezone.now(),submit_time=timezone.now())
+                quiz_id = request.data.get('quiz')  
+                if quiz_id:
+                    Quiz.objects.filter(id=quiz_id, is_completed=False).update(is_completed=True)
+                return Response({"success": True,"message": "Answer saved successfully!"}, status=201)
+            else:
+                return Response(serializer.errors, status=400)
+
+        except Exception as e:
+            return Response({"success": False, "error": "Something went wrong!","details": str(e)}, status=500)
+        
 class PutQuizDetails(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -381,3 +462,104 @@ class DeleteQuizDetails(APIView):
         for i in data:   
             Quiz.objects.filter(id=i).update(is_deleted=True,deleted_by=deleted_by,bkp_deleted_by=bkp_deleted_by,deleted_at=timezone.now()) 
         return Response(status=status.HTTP_200_OK)
+    
+
+class QuizReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quiz_id = request.GET.get('quiz_id')
+
+        if not quiz_id:
+            return Response({"success": False, "message": "quiz_id is required"}, status=400)
+
+        quiz = Quiz.objects.filter(id=quiz_id).first()
+        if not quiz:
+            return Response({"success": False, "message": "Quiz not found"}, status=404)
+
+        submissions = QuizSubmission.objects.filter(quiz_id=quiz_id,is_deleted=False)
+
+        if not submissions.exists():
+            return Response({"success": True,"quiz_id": quiz_id,"quiz_name": quiz.quiz_name,"total_participants": 0,"leaderboard": []})
+
+        #   GROUP BY USER – AGGREGATE RESULTS
+        users = submissions.values(
+            'created_by__id',
+            'created_by__fullname',
+            'created_by__email'
+        ).annotate(
+            total_attempted=Count('id'),
+            correct_answers=Count('id', filter=Q(is_answered=F('question__answare'))),
+            wrong_answers=Count('id', filter=~Q(is_answered=F('question__answare'))),
+            score=Count('id', filter=Q(is_answered=F('question__answare'))),
+            first_submit=Min('submit_time'),
+            last_submit=Max('submit_time')
+        )
+
+        leaderboard = []
+
+        def time_to_seconds(t):
+            """Convert datetime.time to total seconds."""
+            if not t:
+                return None
+            return t.hour * 3600 + t.minute * 60 + t.second
+
+        #   BUILD USER LEADERBOARD
+        for u in users:
+            user_id = u['created_by__id']
+            username = u['created_by__fullname'] or u['created_by__email']
+
+            start = u['first_submit']
+            end = u['last_submit']
+
+            # Calculate time taken even if stored as datetime.time
+            if start and end:
+                start_sec = time_to_seconds(start)
+                end_sec = time_to_seconds(end)
+
+                if start_sec is not None and end_sec is not None:
+                    diff = abs(end_sec - start_sec)
+                    h = diff // 3600
+                    m = (diff % 3600) // 60
+                    s = diff % 60
+                    time_taken = f"{h:02}:{m:02}:{s:02}"
+                else:
+                    time_taken = None
+            else:
+                time_taken = None
+
+            leaderboard.append({
+                "user_id": user_id,
+                "username": username,
+                "total_questions_attempted": u['total_attempted'],
+                "correct_answers": u['correct_answers'],
+                "wrong_answers": u['wrong_answers'],
+                "score": u['score'],
+                "time_taken": time_taken
+            })
+
+        #   SORT BY SCORE DESC, THEN TIME ASC
+        def sort_key(item):
+            # Convert time "HH:MM:SS" to numeric seconds for sorting
+            t = item["time_taken"]
+            if not t:
+                return (item["score"] * -1, 999999999)
+
+            h, m, s = map(int, t.split(":"))
+            return (item["score"] * -1, h * 3600 + m * 60 + s)
+
+        leaderboard = sorted(leaderboard, key=sort_key)
+
+        # --------------------------------------------
+        #   ASSIGN RANK + FASTEST USER
+        # --------------------------------------------
+        # rank = 1
+        # fastest_user_id = leaderboard[0]["user_id"] if leaderboard else None
+
+        # for item in leaderboard:
+        #     item["rank"] = rank
+        #     item["is_fastest"] = item["user_id"] == fastest_user_id
+        #     rank += 1
+
+        #   FINAL RESPONSE 
+        return Response({"success": True,"quiz_id": quiz.id,"quiz_name": quiz.quiz_name,"total_participants": len(leaderboard),"leaderboard": leaderboard}, status=200)
