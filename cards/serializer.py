@@ -39,9 +39,22 @@ class QuizSerializer(serializers.ModelSerializer):
 
 
 # -----------------------------
+#  Wallet SERIALIZER
+# -----------------------------
+class WalletSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.fullname",required=False)
+    user_type = serializers.CharField(source="user.usertype",required=False)
+    class Meta:
+        model = Wallet
+        fields = "__all__"
+
+
+# -----------------------------
 #  TRANSACTION SERIALIZER
 # -----------------------------
 class TransactionsSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.fullname",required=False)
+    user_type = serializers.CharField(source="user.usertype",required=False)
     class Meta:
         model = Transactions
         fields = "__all__"

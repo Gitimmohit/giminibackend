@@ -32,6 +32,11 @@ from django.views.generic.base import RedirectView
 from django.shortcuts import get_object_or_404
 from core.utils import hitby_user
 from django.db import transaction
+from django.db.models import Count, Q, Min, F,Max
+
+from decimal import Decimal
+
+
  
 class AddContactDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -216,10 +221,28 @@ class AddPayment(APIView):
                 created_at=timezone.now(),
                 request_time = timezone.now(),
                 )
-            print("ContactDetails SERIALIZER DATA====",serializer.data)
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
         else:
-            print("ContactDetails SERIALIZER ERROR====",serializer.errors)
+            return Response({"status": "error", "data": serializer.errors})
+
+
+class AddTranaction(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        print("AddContactDetails REQUEST DATA==", request.data) 
+        data=request.data
+        user = request.data.get('user',None)        
+        serializer = TransactionsSerializer(data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save(
+                created_by_id=request.user.id,
+                bkp_created_by=request.user.fullname.upper() if request.user.fullname else None, 
+                created_at=timezone.now(),
+                request_time = timezone.now(),
+                )
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
             return Response({"status": "error", "data": serializer.errors})
 
 
@@ -248,14 +271,103 @@ class AddQuestionDetails(APIView):
 
         except Exception as e:
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
+class GetAllTransactions(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Transactions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
+    serializer_class = TransactionsSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['user__fullname', 'request_type', 'current_status', 'request_time', 'transactionId','transaction_amt']
+ 
+    def get_queryset(self):
+        filter_type = self.request.query_params.get('filter_type',None)
+
+        filters = {}
+        if filter_type == "USER":
+            filters['user_id'] = self.request.user.id
+
+        queryset = self.queryset.filter(**filters)
+        return queryset
+
+
+
+class PutTransactionDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def put(self, request, pk, format=None):
+        modified_by, bkp_modified_by = hitby_user(self, request)
+
+        transaction_amt = request.data.get('transaction_amt', None)
+        current_status = request.data.get('current_status')
+        is_transaction_complete = False
+        if current_status  != "PENDING":
+            is_transaction_complete = True
+
+        transaction_amt = Decimal(transaction_amt) if transaction_amt else Decimal("0")
+
+        current_instance = Transactions.objects.get(id=pk)
+        is_credit = current_instance.is_transaction_complete
+
+        serializer = TransactionsSerializer(current_instance, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save(
+                modified_by=modified_by, 
+                bkp_modified_by=bkp_modified_by, 
+                modified_at=timezone.now(),
+                is_transaction_complete = is_transaction_complete,
+            )
+            print("is_credit---",is_credit,current_status)
+            # Update wallet after approval
+            if request.data.get('request_type') == "CR" and request.data.get('current_status') == "APPROVED" and not is_credit:
+                wallet = Wallet.objects.filter(user=current_instance.user).first()
+
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount + transaction_amt
+                    wallet.save()
+                else:
+                    Wallet.objects.create(
+                        user=current_instance.user,
+                        current_wallet_amount=transaction_amt,
+                        created_at=timezone.now(),
+                    )
+            if request.data.get('request_type') == "DR" and request.data.get('current_status') == "APPROVED" and not is_credit:
+                wallet = Wallet.objects.filter(user=current_instance.user).first()
+
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount - transaction_amt
+                    wallet.save()
+                else:
+                    return Response({"status": "error", "msg": "No Amount Found"},status=status.HTTP_200_OK)
+
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({"status": "error", "data": serializer.errors})
+
+
+class GetWalletDetails(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Wallet.objects.select_related('user').filter().order_by('-id')
+    serializer_class = WalletSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = []
+ 
+    def get_queryset(self):
+        user=self.request.user.id
+        queryset = self.queryset.filter(user_id = user)
+        return queryset
+
+
+
 class GetQuestionsDetails(ListAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Questions.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
     serializer_class = QuestionsSerializer
     pagination_class = MyPageNumberPagination
     filter_backends = [SearchFilter]
-    search_fields = ['question', 'answare', 'age_grup', 'option1', 'option2']
+    search_fields = ['question', 'answer', 'age_grup', 'option1', 'option2']
  
     def get_queryset(self):
         queryset = self.queryset.filter()
@@ -340,7 +452,11 @@ class GetQuizDetails(ListAPIView):
     search_fields = ['quiz_name', 'quiz_date', 'age_grup']
  
     def get_queryset(self):
-        queryset = self.queryset.filter()
+        is_completed = self.request.GET.get('is_completed', None)
+        if is_completed:
+            queryset = self.queryset.filter(is_completed=True)
+        else:
+            queryset = self.queryset.filter()
         return queryset
     
 class GetQuizTransfer(APIView):
@@ -350,6 +466,85 @@ class GetQuizTransfer(APIView):
         quiz_question = Quiz.objects.filter(id=quiz_id).values('question','question__question')
         return Response({'quiz_question': quiz_question})
     
+class GetQuizPlayData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quiz_id = request.GET.get('quiz_id')
+
+        if not quiz_id:
+            return Response({"success": False,"message": "quiz_id is required in query params"}, status=400)
+
+        # Quiz exist karta hai ya nahi + soft delete check
+        quiz = get_object_or_404(Quiz, id=quiz_id,)
+
+        # Saare questions jo is quiz mein hain aur deleted nahi hain
+        questions_qs = quiz.question.filter(is_deleted=False).order_by('id')
+
+        # Final data jo frontend ko exactly chahiye
+        quiz_data = []
+        for q in questions_qs:
+            time_delta = q.time
+            time_in_seconds = time_delta.hour * 3600 + time_delta.minute * 60 + time_delta.second if time_delta else 30
+            quiz_data.append({
+                "id": q.id,
+                "quiz_id": quiz_id,
+                "question": q.question or "",
+                "time":time_in_seconds,
+                "options": [
+                    {"id": "A", "text": q.option1 or ""},
+                    {"id": "B", "text": q.option2 or ""},
+                    {"id": "C", "text": q.option3 or ""},
+                    {"id": "D", "text": q.option4 or ""},
+                ],
+            })
+
+        return Response({"success": True,"quiz_name": quiz.quiz_name,"total_time": quiz.total_time.strftime("%H:%M:%S") if quiz.total_time else None,"quiz_data": quiz_data})
+    
+# class GetQuizUpcomingData(ListAPIView):
+#     permission_classes = [IsAuthenticated]
+#     queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-quiz_name')
+#     serializer_class = QuizSerializer
+#     pagination_class = MyPageNumberPagination
+#     filter_backends = [SearchFilter]
+#     search_fields = ['quiz_name', 'quiz_date', 'age_grup']
+ 
+#     def get_queryset(self):
+#         now = timezone.now() 
+#         after_24_hours = now + timedelta(hours=24)
+#         queryset = self.queryset.filter(quiz_date__gt=after_24_hours).order_by('-quiz_name')
+#         return queryset
+
+class GetQuizUpcomingData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        now = timezone.now()
+        after_24_hours = now + timedelta(hours=24)
+        quizzes = Quiz.objects.filter(is_deleted=False,quiz_date__gt=after_24_hours).select_related('user', 'created_by', 'modified_by', 'deleted_by').order_by('-quiz_date')
+        serializer = QuizSerializer(quizzes, many=True)
+        return Response({"success": True,"count": quizzes.count(),"upcoming_quizzes": serializer.data})
+     
+class AddQuizSubmissionDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request): 
+        try:
+            created_by, bkp_created_by = hitby_user(self, request)
+            serializer = QuizSubmissionSerializer(data=request.data)
+            if serializer.is_valid():
+                submission = serializer.save(created_by=created_by,bkp_created_by=bkp_created_by,created_at=timezone.now(),submit_time=timezone.now())
+                quiz_id = request.data.get('quiz')  
+                if quiz_id:
+                    Quiz.objects.filter(id=quiz_id, is_completed=False).update(is_completed=True)
+                return Response({"success": True,"message": "Answer saved successfully!"}, status=201)
+            else:
+                return Response(serializer.errors, status=400)
+
+        except Exception as e:
+            return Response({"success": False, "error": "Something went wrong!","details": str(e)}, status=500)
+        
 class PutQuizDetails(APIView):
     permission_classes = [IsAuthenticated]
     
@@ -574,3 +769,136 @@ class ContactUsListAPI(ListAPIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )            
+    
+
+class QuizReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quiz_id = request.GET.get('quiz_id')
+        if not quiz_id:
+            return Response({"success": False, "message": "quiz_id is required"}, status=400)
+        quiz = Quiz.objects.filter(id=quiz_id).first()
+        if not quiz:
+            return Response({"success": False, "message": "Quiz not found"}, status=404)
+        
+        total_questions = quiz.question.count()
+        submissions = QuizSubmission.objects.filter(quiz_id=quiz_id, is_deleted=False)
+
+        if not submissions.exists():
+            return Response({"success": True,"quiz_id": quiz_id,"quiz_name": quiz.quiz_name,"total_participants": 0,"leaderboard": [],"winner": None})
+
+        users = submissions.values(
+            'created_by__id',
+            'created_by__fullname',
+            'created_by__email'
+        ).annotate(
+            total_attempted=Count('id'),
+            correct_answers=Count('id', filter=Q(is_answered=F('question__answer'))),
+            wrong_answers=Count('id', filter=~Q(is_answered=F('question__answer'))),
+            score=Count('id', filter=Q(is_answered=F('question__answer'))),
+            first_submit=Min('submit_time'),
+            last_submit=Max('submit_time')
+        ) 
+
+        leaderboard = []
+
+        for u in users:
+            user_id = u['created_by__id']
+            username = u['created_by__fullname'] or u['created_by__email']
+            email = u['created_by__email']
+
+            start = u['first_submit']
+            end = u['last_submit']
+
+            # ---- FIX: TIMEFIELD DIFFERENCE WITH MICROSECONDS ----
+            if start and end:
+                start_seconds = start.hour * 3600 + start.minute * 60 + start.second + (start.microsecond / 1_000_000)
+                end_seconds = end.hour * 3600 + end.minute * 60 + end.second + (end.microsecond / 1_000_000)
+
+                total_seconds = abs(end_seconds - start_seconds)
+
+                diff_int = int(total_seconds)
+                h = diff_int // 3600
+                m = (diff_int % 3600) // 60
+                s = diff_int % 60
+
+                time_taken = f"{h:02}:{m:02}:{s:02}"
+            else:
+                total_seconds = None
+                time_taken = None
+            # -----------------------------------------------------
+
+            leaderboard.append({
+                "user_id": user_id,
+                "username": username,
+                "email": email,
+                "total_questions": total_questions,
+                "total_questions_attempted": u['total_attempted'],
+                "correct_answers": u['correct_answers'],
+                "wrong_answers": u['wrong_answers'],
+                "score": u['score'],
+                "time_taken": time_taken,
+                "raw_time": total_seconds
+            })
+
+        # SORT: Score desc, time asc
+        def sort_key(item):
+            t = item["raw_time"]
+            if t is None:
+                t = float('inf')
+            return (-item["score"], t)
+
+        leaderboard = sorted(leaderboard, key=sort_key)
+
+        # WINNER
+        winner = leaderboard[0] if leaderboard else None
+        # ADD WINNER FLAG TO LEADERBOARD
+        for item in leaderboard:
+            item["is_winner"] = (winner and item["user_id"] == winner["user_id"])
+
+        return Response({
+            "success": True,
+            "quiz_id": quiz.id,
+            "quiz_name": quiz.quiz_name,
+            "total_participants": len(leaderboard),
+            "leaderboard": leaderboard,
+            "winner": winner
+        }, status=200)
+
+
+class BulkCreateBankStatement(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        print("request.data", request.data)
+        if not isinstance(request.data.get("qestions_details"), list):
+            return Response({"status": "error", "error": "Expected 'qestions_details' as a list"},status=status.HTTP_400_BAD_REQUEST)
+
+        bulk_data = request.data["qestions_details"] 
+        created_by, bkp_created_by = hitby_user(self, request) 
+        created_at = timezone.now()
+
+        total_records = len(bulk_data)
+        bulk_qun_data = []
+
+        # Process each row in order
+        for item in bulk_data:  
+            item["created_by"] = created_by.id
+            item["bkp_created_by"] = bkp_created_by
+            item["created_at"] = created_at 
+            item["time"] = "00:00:30"
+            bulk_qun_data.append(item) 
+
+        saved_count = len(bulk_qun_data) 
+
+        # Save rows in order
+        serializer = QuestionsSerializer(data=bulk_qun_data, many=True)
+        if serializer.is_valid():
+            with transaction.atomic():  # Ensure all rows are saved together
+                qestions_data = [Questions(**data) for data in serializer.validated_data]
+                Questions.objects.bulk_create(qestions_data)
+            return Response({"status": "success","message": f"Saved {saved_count} new records ","total_records": total_records, "saved_count": saved_count},status=status.HTTP_201_CREATED)
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response({"status": "error","message": "Invalid data in one or more rows.","errors": serializer.errors,"total_records": total_records,"saved_count": 0},status=status.HTTP_400_BAD_REQUEST)
