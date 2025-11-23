@@ -565,20 +565,18 @@ class QuizReportView(APIView):
 
     def get(self, request):
         quiz_id = request.GET.get('quiz_id')
-
         if not quiz_id:
             return Response({"success": False, "message": "quiz_id is required"}, status=400)
-
         quiz = Quiz.objects.filter(id=quiz_id).first()
         if not quiz:
             return Response({"success": False, "message": "Quiz not found"}, status=404)
-
-        submissions = QuizSubmission.objects.filter(quiz_id=quiz_id,is_deleted=False)
+        
+        total_questions = quiz.question.count()
+        submissions = QuizSubmission.objects.filter(quiz_id=quiz_id, is_deleted=False)
 
         if not submissions.exists():
-            return Response({"success": True,"quiz_id": quiz_id,"quiz_name": quiz.quiz_name,"total_participants": 0,"leaderboard": []})
+            return Response({"success": True,"quiz_id": quiz_id,"quiz_name": quiz.quiz_name,"total_participants": 0,"leaderboard": [],"winner": None})
 
-        #   GROUP BY USER – AGGREGATE RESULTS
         users = submissions.values(
             'created_by__id',
             'created_by__fullname',
@@ -590,72 +588,69 @@ class QuizReportView(APIView):
             score=Count('id', filter=Q(is_answered=F('question__answare'))),
             first_submit=Min('submit_time'),
             last_submit=Max('submit_time')
-        )
+        ) 
 
         leaderboard = []
 
-        def time_to_seconds(t):
-            """Convert datetime.time to total seconds."""
-            if not t:
-                return None
-            return t.hour * 3600 + t.minute * 60 + t.second
-
-        #   BUILD USER LEADERBOARD
         for u in users:
             user_id = u['created_by__id']
             username = u['created_by__fullname'] or u['created_by__email']
+            email = u['created_by__email']
 
             start = u['first_submit']
             end = u['last_submit']
 
-            # Calculate time taken even if stored as datetime.time
+            # ---- FIX: TIMEFIELD DIFFERENCE WITH MICROSECONDS ----
             if start and end:
-                start_sec = time_to_seconds(start)
-                end_sec = time_to_seconds(end)
+                start_seconds = start.hour * 3600 + start.minute * 60 + start.second + (start.microsecond / 1_000_000)
+                end_seconds = end.hour * 3600 + end.minute * 60 + end.second + (end.microsecond / 1_000_000)
 
-                if start_sec is not None and end_sec is not None:
-                    diff = abs(end_sec - start_sec)
-                    h = diff // 3600
-                    m = (diff % 3600) // 60
-                    s = diff % 60
-                    time_taken = f"{h:02}:{m:02}:{s:02}"
-                else:
-                    time_taken = None
+                total_seconds = abs(end_seconds - start_seconds)
+
+                diff_int = int(total_seconds)
+                h = diff_int // 3600
+                m = (diff_int % 3600) // 60
+                s = diff_int % 60
+
+                time_taken = f"{h:02}:{m:02}:{s:02}"
             else:
+                total_seconds = None
                 time_taken = None
+            # -----------------------------------------------------
 
             leaderboard.append({
                 "user_id": user_id,
                 "username": username,
+                "email": email,
+                "total_questions": total_questions,
                 "total_questions_attempted": u['total_attempted'],
                 "correct_answers": u['correct_answers'],
                 "wrong_answers": u['wrong_answers'],
                 "score": u['score'],
-                "time_taken": time_taken
+                "time_taken": time_taken,
+                "raw_time": total_seconds
             })
 
-        #   SORT BY SCORE DESC, THEN TIME ASC
+        # SORT: Score desc, time asc
         def sort_key(item):
-            # Convert time "HH:MM:SS" to numeric seconds for sorting
-            t = item["time_taken"]
-            if not t:
-                return (item["score"] * -1, 999999999)
-
-            h, m, s = map(int, t.split(":"))
-            return (item["score"] * -1, h * 3600 + m * 60 + s)
+            t = item["raw_time"]
+            if t is None:
+                t = float('inf')
+            return (-item["score"], t)
 
         leaderboard = sorted(leaderboard, key=sort_key)
 
-        # --------------------------------------------
-        #   ASSIGN RANK + FASTEST USER
-        # --------------------------------------------
-        # rank = 1
-        # fastest_user_id = leaderboard[0]["user_id"] if leaderboard else None
+        # WINNER
+        winner = leaderboard[0] if leaderboard else None
+        # ADD WINNER FLAG TO LEADERBOARD
+        for item in leaderboard:
+            item["is_winner"] = (winner and item["user_id"] == winner["user_id"])
 
-        # for item in leaderboard:
-        #     item["rank"] = rank
-        #     item["is_fastest"] = item["user_id"] == fastest_user_id
-        #     rank += 1
-
-        #   FINAL RESPONSE 
-        return Response({"success": True,"quiz_id": quiz.id,"quiz_name": quiz.quiz_name,"total_participants": len(leaderboard),"leaderboard": leaderboard}, status=200)
+        return Response({
+            "success": True,
+            "quiz_id": quiz.id,
+            "quiz_name": quiz.quiz_name,
+            "total_participants": len(leaderboard),
+            "leaderboard": leaderboard,
+            "winner": winner
+        }, status=200)
