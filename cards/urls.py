@@ -30,5 +30,6 @@ urlpatterns = [
     path('get_upcoming_quiz_data/', GetQuizUpcomingData.as_view()),
     path('add_quiz_submission_details/', AddQuizSubmissionDetails.as_view()),
     path('quiz_report_view/', QuizReportView.as_view()),
+    path('bulk_create_qestions_details/', BulkCreateBankStatement.as_view()),
 
 ]

@@ -364,7 +364,7 @@ class GetQuestionsDetails(ListAPIView):
     serializer_class = QuestionsSerializer
     pagination_class = MyPageNumberPagination
     filter_backends = [SearchFilter]
-    search_fields = ['question', 'answare', 'age_grup', 'option1', 'option2']
+    search_fields = ['question', 'answer', 'age_grup', 'option1', 'option2']
  
     def get_queryset(self):
         queryset = self.queryset.filter()
@@ -597,9 +597,9 @@ class QuizReportView(APIView):
             'created_by__email'
         ).annotate(
             total_attempted=Count('id'),
-            correct_answers=Count('id', filter=Q(is_answered=F('question__answare'))),
-            wrong_answers=Count('id', filter=~Q(is_answered=F('question__answare'))),
-            score=Count('id', filter=Q(is_answered=F('question__answare'))),
+            correct_answers=Count('id', filter=Q(is_answered=F('question__answer'))),
+            wrong_answers=Count('id', filter=~Q(is_answered=F('question__answer'))),
+            score=Count('id', filter=Q(is_answered=F('question__answer'))),
             first_submit=Min('submit_time'),
             last_submit=Max('submit_time')
         ) 
@@ -668,3 +668,40 @@ class QuizReportView(APIView):
             "leaderboard": leaderboard,
             "winner": winner
         }, status=200)
+
+
+class BulkCreateBankStatement(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        print("request.data", request.data)
+        if not isinstance(request.data.get("qestions_details"), list):
+            return Response({"status": "error", "error": "Expected 'qestions_details' as a list"},status=status.HTTP_400_BAD_REQUEST)
+
+        bulk_data = request.data["qestions_details"] 
+        created_by, bkp_created_by = hitby_user(self, request) 
+        created_at = timezone.now()
+
+        total_records = len(bulk_data)
+        bulk_qun_data = []
+
+        # Process each row in order
+        for item in bulk_data:  
+            item["created_by"] = created_by.id
+            item["bkp_created_by"] = bkp_created_by
+            item["created_at"] = created_at 
+            item["time"] = "00:00:30"
+            bulk_qun_data.append(item) 
+
+        saved_count = len(bulk_qun_data) 
+
+        # Save rows in order
+        serializer = QuestionsSerializer(data=bulk_qun_data, many=True)
+        if serializer.is_valid():
+            with transaction.atomic():  # Ensure all rows are saved together
+                qestions_data = [Questions(**data) for data in serializer.validated_data]
+                Questions.objects.bulk_create(qestions_data)
+            return Response({"status": "success","message": f"Saved {saved_count} new records ","total_records": total_records, "saved_count": saved_count},status=status.HTTP_201_CREATED)
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response({"status": "error","message": "Invalid data in one or more rows.","errors": serializer.errors,"total_records": total_records,"saved_count": 0},status=status.HTTP_400_BAD_REQUEST)

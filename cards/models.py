@@ -68,7 +68,7 @@ class Questions(models.Model):
     ]
     user            = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
     question        = models.TextField(blank=True , null=True , verbose_name='Question')
-    answare         = models.CharField(max_length=1, choices=ANSWER_CHOICES)
+    answer         = models.CharField(max_length=1, choices=ANSWER_CHOICES)
     time            = models.TimeField(blank=True , null=True , verbose_name='time')
     age_grup        = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
     
