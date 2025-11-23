@@ -449,7 +449,11 @@ class GetQuizDetails(ListAPIView):
     search_fields = ['quiz_name', 'quiz_date', 'age_grup']
  
     def get_queryset(self):
-        queryset = self.queryset.filter()
+        is_completed = self.request.GET.get('is_completed', None)
+        if is_completed:
+            queryset = self.queryset.filter(is_completed=True)
+        else:
+            queryset = self.queryset.filter()
         return queryset
     
 class GetQuizTransfer(APIView):
