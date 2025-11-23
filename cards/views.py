@@ -343,6 +343,20 @@ class PutTransactionDetails(APIView):
         return Response({"status": "error", "data": serializer.errors})
 
 
+class GetWalletDetails(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Wallet.objects.select_related('user').filter().order_by('-id')
+    serializer_class = WalletSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = []
+ 
+    def get_queryset(self):
+        user=self.request.user.id
+        queryset = self.queryset.filter(user_id = user)
+        return queryset
+
+
 
 class GetQuestionsDetails(ListAPIView):
     permission_classes = [IsAuthenticated]
