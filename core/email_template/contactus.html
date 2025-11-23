@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Contact Form Submission</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            max-width: 600px;
+            margin: 30px auto;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        h2 {
+            color: #333333;
+        }
+        p {
+            color: #555555;
+        }
+        .details {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .details li {
+            list-style: none;
+            padding: 5px 0;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #333333;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Contact Form Submission</h2>
+        <p>Dear <span class="highlight">{{ booking.name }}</span>,</p>
+        <p>Thank you for reaching out to us. We have received your message and will get back to you as soon as possible. Here are the  details you submitted:</p>
+
+        <!-- <ul class="details">
+            <li><span class="highlight">Name:</span> {{ booking.name }}</li>
+            <li><span class="highlight">Email:</span> {{ booking.user_email }}</li>
+            <li><span class="highlight">Subject:</span> {{ booking.subject }}</li>
+            <li><span class="highlight">Message:</span> {{ booking.message }}</li>
+        </ul> -->
+
+        <p>We appreciate you contacting us and will respond promptly.</p>
+
+        <div class="footer">
+            Thank you,<br>
+            <strong>Your Company Name</strong>
+        </div>
+    </div>
+</body>
+</html>

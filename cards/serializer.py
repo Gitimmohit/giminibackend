@@ -63,3 +63,9 @@ class BookingShowSerializer(serializers.ModelSerializer):
     class Meta:
         model = BookingShow
         fields = "__all__"
+    
+    
+class ContactUsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contactus
+        fields = "__all__"

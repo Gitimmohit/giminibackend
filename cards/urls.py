@@ -21,5 +21,13 @@ urlpatterns = [
     path('get_quiz_details/', GetQuizDetails.as_view()), 
     path('get_quiz_transfer/', GetQuizTransfer.as_view()), 
     path('delete_quiz_details/', DeleteQuizDetails.as_view()),
+    
 
+    # Book show  
+    path('book_show/',ShowBookingCreateAPI.as_view()),
+    path('get_book_show/',ShowBookingListAPI.as_view()),
+    
+    # ContactusUS
+    path('contact_us/',ContactusCreateAPI.as_view()),
+    path('get-contact-show/',ContactUsListAPI.as_view()),
 ]

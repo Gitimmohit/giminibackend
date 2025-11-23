@@ -1,3 +1,4 @@
+from django.core.mail import EmailMultiAlternatives
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
@@ -13,6 +14,8 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.hashers import *
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 import base64
+import os
+
 from django.core.files.base import ContentFile
 from datetime import timedelta ,time
 from django.utils import timezone
@@ -381,3 +384,193 @@ class DeleteQuizDetails(APIView):
         for i in data:   
             Quiz.objects.filter(id=i).update(is_deleted=True,deleted_by=deleted_by,bkp_deleted_by=bkp_deleted_by,deleted_at=timezone.now()) 
         return Response(status=status.HTTP_200_OK)
+
+
+
+class ShowBookingCreateAPI(APIView):
+    def post(self, request):
+        try:
+            serializer = BookingShowSerializer(data=request.data)
+            print("Requested",request.data)
+            if serializer.is_valid():
+                print("SSSSSSSSSSSSS")
+                booking = serializer.save()  # Save the booking
+
+                # ---------------------------------------
+                # Prepare email content
+                # ---------------------------------------
+                user_email = request.data.get('email',None)  # who booked
+                other_email = "mohitetechcube@gmail.com"             # another recipient
+                recipient_list = [user_email, other_email]      # multiple recipients
+
+                context = {
+                    "booking": booking,
+                    "recipient_name":request.data.get('name'),  # optional, use username
+                    "support_email": "support@yourdomain.com",
+                }
+
+                html_message = render_to_string("show_booking.html", context)
+                plain_message = strip_tags(html_message)
+
+                # ---------------------------------------
+                # Send email using send_mail
+                # ---------------------------------------
+                
+                send_mail(
+                    subject="Booking Confirmation",
+                    message=plain_message,  # Plain text
+                    from_email=os.environ.get("EMAIL_HOST_USER", "noreply@yourdomain.com"),
+                    recipient_list=recipient_list,
+                    fail_silently=False,
+                    html_message=html_message,  # HTML content
+                )
+
+
+                # ---------------------------------------
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Booking created successfully and emails sent",
+                        "data": serializer.data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            print("Serialiser Error",serializer.errors)
+            return Response(
+                {"success": False, "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+            print("Exception Error",e)
+            return Response(
+                {"success": False, "error": f"Something went wrong: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+            
+            
+            
+class ShowBookingListAPI(ListAPIView):
+    permission_classes=[IsAdminUser]
+    queryset = BookingShow.objects.all()
+    serializer_class = BookingShowSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Bookings fetched successfully",
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": f"Something went wrong: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
+            
+            
+            
+            
+            # ------------------contactus--------------
+
+            
+class ContactusCreateAPI(APIView):
+    def post(self, request):
+        try:
+            serializer = ContactUsSerializer(data=request.data)
+            print("Requested",request.data)
+            if serializer.is_valid():
+                print("SSSSSSSSSSSSS")
+                booking = serializer.save()  # Save the booking
+
+                # ---------------------------------------
+                # Prepare HTML and plain text email
+                # ---------------------------------------
+                context = {"booking": serializer.data}  # single booking info
+                html_content = render_to_string(
+                    "contactus.html", context
+                )
+                text_content = strip_tags(html_content)
+
+                # ---------------------------------------
+                # Multiple recipients
+                # ---------------------------------------
+                recipient_emails = [
+                    serializer.data.get("email"),      # email of person who booked
+                    "mohitetechcube@gmail.com",                 # another recipient
+                ]
+
+                email = EmailMultiAlternatives(
+                    subject="Contact Us",
+                    body=text_content,
+                    from_email="noreply@yourdomain.com",
+                    to=recipient_emails,   # send to all in list
+                )
+                email.attach_alternative(html_content, "text/html")
+                email.send()
+
+                # ---------------------------------------
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Your form is Submitted Successfully",
+                        "data": serializer.data,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            print("Serialiser Error",serializer.errors)
+            return Response(
+                {"success": False, "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+            print("Exception Error",e)
+            return Response(
+                {"success": False, "error": f"Something went wrong: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+            
+            
+            
+class ContactUsListAPI(ListAPIView):
+    permission_classes=[IsAdminUser]
+    queryset = Contactus.objects.all()
+    serializer_class = ContactUsSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Bookings fetched successfully",
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "error": f"Something went wrong: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )            

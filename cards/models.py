@@ -165,11 +165,19 @@ class Wallet(models.Model):
         
 class BookingShow(models.Model):
     name = models.CharField(max_length=150, blank=True, null=True)
-    number = models.IntegerField()
+    mobile = models.CharField(max_length=20,null=True, blank=True)
     email = models.EmailField()
-    school_name = models.TextField()
+    school = models.TextField()
     city = models.CharField(max_length=150)
-    number_of_student = models.IntegerField()
+    students = models.CharField()
+    created_at=models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     def __str__(self):
         return self.name or "Booking"
+class Contactus(models.Model):
+    name=models.CharField(max_length=100,blank=True, null=True)
+    email=models.EmailField()  
+    inquiry_type =models.TextField(max_length=200,null=True, blank=True)
+    subject=models.TextField(max_length=150, null=True, blank=True)
+    message=models.TextField(max_length=150, null=True, blank=True)
+    created_at=models.DateTimeField(null=True, blank=True, default=timezone.now)
