@@ -8,6 +8,7 @@ urlpatterns = [
     
     # for first payment
     path('first_payment_receipt/', AddPayment.as_view()),
+    path('add_tranaction/', AddTranaction.as_view()), 
     path('getfirst_payment_receipt/', FirstPayment.as_view()),
     path('transaction-request/', GetAllTransactions.as_view()),
     path('put_tranaction/<int:pk>', PutTransactionDetails.as_view()),

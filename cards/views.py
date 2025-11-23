@@ -218,10 +218,28 @@ class AddPayment(APIView):
                 created_at=timezone.now(),
                 request_time = timezone.now(),
                 )
-            print("ContactDetails SERIALIZER DATA====",serializer.data)
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
         else:
-            print("ContactDetails SERIALIZER ERROR====",serializer.errors)
+            return Response({"status": "error", "data": serializer.errors})
+
+
+class AddTranaction(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        print("AddContactDetails REQUEST DATA==", request.data) 
+        data=request.data
+        user = request.data.get('user',None)        
+        serializer = TransactionsSerializer(data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save(
+                created_by_id=request.user.id,
+                bkp_created_by=request.user.fullname.upper() if request.user.fullname else None, 
+                created_at=timezone.now(),
+                request_time = timezone.now(),
+                )
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
             return Response({"status": "error", "data": serializer.errors})
 
 
@@ -482,7 +500,6 @@ class GetQuizUpcomingData(APIView):
     def get(self, request):
         now = timezone.now()
         after_24_hours = now + timedelta(hours=24)
-        # Filter: Last 24 hours se future tak ke saare active quizzes
         quizzes = Quiz.objects.filter(is_deleted=False,quiz_date__gt=after_24_hours).select_related('user', 'created_by', 'modified_by', 'deleted_by').order_by('-quiz_date')
         serializer = QuizSerializer(quizzes, many=True)
         return Response({"success": True,"count": quizzes.count(),"upcoming_quizzes": serializer.data})

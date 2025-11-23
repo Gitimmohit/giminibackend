@@ -123,7 +123,7 @@ class Quiz(models.Model):
     quiz_date    = models.DateTimeField(blank=True , null=True , verbose_name='Quiz Date Time')
     age_grup     = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_group')
     prize_money  = models.TextField(blank=True , null=True ,verbose_name='Prize Money')
-    entry_fee    = models.DecimalField(max_digits=10,decimal_places=2,default=0,verbose_name='Entry Fee')
+    entry_fee    = models.DecimalField(max_digits=11,decimal_places=2,default=0,verbose_name='Entry Fee')
     is_completed = models.BooleanField(default=False,verbose_name="Is Completed",null=True,blank=True,)
     
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
@@ -157,6 +157,8 @@ class Transactions(models.Model):
     bkp_deleted_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Deletor")
     bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Created By")
     bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Transaction_Backup Modified By")
+
+
 
 class Wallet(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True, related_name="wallets")
