@@ -32,6 +32,10 @@ urlpatterns = [
     path('quiz_report_view/', QuizReportView.as_view()),
     path('bulk_create_qestions_details/', BulkCreateBankStatement.as_view()),
 
+# for the quiz participate
+    path('addquizparticipant/', AddQuizParticipant.as_view()),
+
+
     # Book show  
     path('book_show/',ShowBookingCreateAPI.as_view()),
     path('get_book_show/',ShowBookingListAPI.as_view()),

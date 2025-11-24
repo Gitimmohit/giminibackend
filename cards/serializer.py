@@ -59,6 +59,16 @@ class TransactionsSerializer(serializers.ModelSerializer):
         model = Transactions
         fields = "__all__"
 
+# -----------------------------
+#  QuizParticipant SERIALIZER
+# -----------------------------
+class QuizParticipantSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.fullname",required=False)
+    user_type = serializers.CharField(source="user.usertype",required=False)
+    class Meta:
+        model = QuizParticipant
+        fields = "__all__"
+
 
 # -----------------------------
 #  WALLET SERIALIZER

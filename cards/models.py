@@ -137,13 +137,22 @@ class Quiz(models.Model):
     bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Quiz_Backup Created By")
     bkp_modified_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="Quiz_Backup Modified By")
 
+class QuizParticipant(models.Model): 
+    user                = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
+    quiz_status         = models.CharField(default="PENDING",max_length=100,blank=True , null=True , verbose_name='Quiz Status',)
+    quiz                = models.ForeignKey('cards.Quiz', on_delete=models.SET_NULL, null=True, blank=True, related_name='quizparticipant_quiz', verbose_name="Quiz Id")
+    participating_date  = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Participating At')
+
+
+
 class Transactions(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
-    request_type = models.CharField(max_length=100,blank=True , null=True , verbose_name='equest_type')
+    request_type = models.CharField(max_length=100,blank=True , null=True , verbose_name='request_type')
     current_status = models.TextField(default="PENDING",blank=True , null=True , verbose_name='current_status')
     request_time = models.DateTimeField(blank=True , null=True , verbose_name='request_time')
     transactionId = models.CharField(max_length=100,blank=True , null=True , verbose_name='transactionId')
     transaction_amt = models.CharField(max_length=100,blank=True , null=True , verbose_name='transaction_amt')
+    transaction_from = models.CharField(max_length=100,blank=True , null=True , verbose_name='transaction_from')
 
     is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
     is_transaction_complete   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
@@ -174,17 +183,19 @@ class Wallet(models.Model):
 class BookingShow(models.Model):
     name = models.CharField(max_length=150, blank=True, null=True)
     mobile = models.CharField(max_length=20,null=True, blank=True)
-    email = models.EmailField()
-    school = models.TextField()
-    city = models.CharField(max_length=150)
-    students = models.CharField()
+    email = models.EmailField(blank=True, null=True)
+    school = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=150,blank=True, null=True)
+    students = models.CharField(blank=True, null=True)
     created_at=models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     def __str__(self):
         return self.name or "Booking"
+
+
 class Contactus(models.Model):
     name=models.CharField(max_length=100,blank=True, null=True)
-    email=models.EmailField()  
+    email=models.EmailField(blank=True, null=True)  
     inquiry_type =models.TextField(max_length=200,null=True, blank=True)
     subject=models.TextField(max_length=150, null=True, blank=True)
     message=models.TextField(max_length=150, null=True, blank=True)

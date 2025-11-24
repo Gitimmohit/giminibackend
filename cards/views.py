@@ -257,6 +257,7 @@ class FirstPayment(ListAPIView):
         queryset = self.queryset.filter(user_id=self.request.user.id)
 
         return queryset
+
 class AddQuestionDetails(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -501,19 +502,6 @@ class GetQuizPlayData(APIView):
 
         return Response({"success": True,"quiz_name": quiz.quiz_name,"total_time": quiz.total_time.strftime("%H:%M:%S") if quiz.total_time else None,"quiz_data": quiz_data})
     
-# class GetQuizUpcomingData(ListAPIView):
-#     permission_classes = [IsAuthenticated]
-#     queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-quiz_name')
-#     serializer_class = QuizSerializer
-#     pagination_class = MyPageNumberPagination
-#     filter_backends = [SearchFilter]
-#     search_fields = ['quiz_name', 'quiz_date', 'age_grup']
- 
-#     def get_queryset(self):
-#         now = timezone.now() 
-#         after_24_hours = now + timedelta(hours=24)
-#         queryset = self.queryset.filter(quiz_date__gt=after_24_hours).order_by('-quiz_name')
-#         return queryset
 
 class GetQuizUpcomingData(APIView):
     permission_classes = [IsAuthenticated]
@@ -524,6 +512,9 @@ class GetQuizUpcomingData(APIView):
         quizzes = Quiz.objects.filter(is_deleted=False,quiz_date__gt=after_24_hours).select_related('user', 'created_by', 'modified_by', 'deleted_by').order_by('-quiz_date')
         serializer = QuizSerializer(quizzes, many=True)
         return Response({"success": True,"count": quizzes.count(),"upcoming_quizzes": serializer.data})
+
+
+
      
 class AddQuizSubmissionDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -902,3 +893,40 @@ class BulkCreateBankStatement(APIView):
         else:
             print("Serializer errors:", serializer.errors)
             return Response({"status": "error","message": "Invalid data in one or more rows.","errors": serializer.errors,"total_records": total_records,"saved_count": 0},status=status.HTTP_400_BAD_REQUEST)
+
+
+# For Quiz Participant
+
+class AddQuizParticipant(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request):
+        try:
+            created_by, bkp_created_by = hitby_user(self,request) 
+            quiz_amount=  request.data.get('quiz_amount') 
+            serializer = QuizParticipantSerializer(data=request.data)
+            if serializer.is_valid():
+                question_instance = serializer.save(participating_date=timezone.now()) 
+                Transactions.objects.create(
+                                            transaction_amt = quiz_amount,
+                                            request_time=timezone.now(),
+                                            current_status="APPROVED",
+                                            request_type="DR",
+                                            user = created_by,
+                                            created_by = created_by,
+                                            bkp_created_by = bkp_created_by,
+                                            transaction_from = "QUIZ"
+                                            )
+
+                quiz_amount = Decimal(str(quiz_amount))
+                wallet = Wallet.objects.filter(user=created_by).first()
+                if wallet:
+                    wallet.current_wallet_amount -= quiz_amount
+                    wallet.save()
+
+                return Response({"message": "Quiz Participate successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print("error --- ",e)
+            return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
