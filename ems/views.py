@@ -29,6 +29,7 @@ import os
 from .models import CustomUser, OTPRecord 
 from cards.mypaginations import MyPageNumberPagination
 from core.utils import hitby_user 
+from django.core.mail import EmailMultiAlternatives
 
 # for the duplicate
 class CheckDuplicateEmail(APIView):
@@ -423,3 +424,124 @@ class CheckUserPhone(APIView):
             return Response({'status': 'error', 'message': 'Duplicate Entry'})
         else:
             return Response({'status': 'success', 'message': 'No duplicates found'})
+        
+# class SendForgotPasswordOtp(APIView):
+#     def post(self, request):
+#         email = request.data.get('email', '').strip().lower()
+
+#         if not email:
+#             return Response({'status': 'error','message': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Always delete old OTP first (even if user doesn't exist)
+#         OTPRecord.objects.filter(email=email).delete()
+
+#         # Check if user exists
+#         user_exists = CustomUser.objects.filter(email=email, is_active=True).exists()
+
+#         if not user_exists:
+#             # Don't tell user "not found" → security best practice
+#             return Response({'status': 'success','message': 'If your email is registered, an OTP has been sent.'}, status=status.HTTP_200_OK)
+
+#         # Generate OTP
+#         otp = ''.join(random.choices(string.digits, k=6))
+
+#         # Save in OTPRecord only if user exists
+#         OTPRecord.objects.create(email=email,otp=otp,token=uuid.uuid4())
+
+#         # Send Email
+#         try:
+#             user = CustomUser.objects.get(email=email)
+#             context = {
+#                 'otp': otp,
+#                 'name': user.fullname or email.split('@')[0],
+#                 'expiry': 10
+#             }
+
+#             html_content = render_to_string('forgot_otp.html', context)
+#             text_content = strip_tags(html_content)
+
+#             email_msg = EmailMultiAlternatives(
+#                 subject="Your Password Reset OTP",
+#                 body=text_content,
+#                 from_email="OTP",
+#                 to=[email]
+#             )
+#             email_msg.attach_alternative(html_content, "text/html")
+#             email_msg.send()
+
+#         except Exception as e:
+#             print(f"Email send failed: {e}")
+#             # Still return success message (don't reveal failure)
+#             pass
+
+#         return Response({'status': 'success','message': 'If your email is registered, an OTP has been sent.'}, status=status.HTTP_200_OK)
+  
+
+# views.py
+class SendForgotPasswordOTPView(APIView):
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        if not email:
+            return Response({'status': 'error', 'message': 'Email is required'}, status=400)
+
+        try:
+            user = CustomUser.objects.get(email=email, is_active=True)
+            if not user.email:  # Double check (just in case)
+                raise ValueError()
+        except (CustomUser.DoesNotExist, ValueError):
+            return Response({'status': 'error','message': 'No account found with this email.'}, status=400)
+
+        # Delete old OTP
+        OTPRecord.objects.filter(email=email).delete()
+        # Generate & Save OTP
+        otp = ''.join(random.choices(string.digits, k=6))
+        OTPRecord.objects.create(email=email, otp=otp,token=uuid.uuid4())
+
+        # Send Email (Safe Method)
+        try:
+            html_message = render_to_string('forgot_otp.html', {
+                'otp': otp,
+                'name': (user.fullname.title() if user.fullname else "User") 
+            })
+            send_mail(
+                subject="Your Secure Password Reset OTP",
+                message=strip_tags(html_message),
+                from_email="OTP Team",
+                recipient_list=[email],
+                fail_silently=False,
+                html_message=html_message,
+            )
+        except Exception as e:
+            print("Email failed:", e)
+
+        return Response({'status': 'success','message': 'OTP sent to your email!'})
+
+
+class ResetPasswordWithOTPView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+        new_password = request.data.get('newPassword')
+        confirm_password = request.data.get('confirmPassword')
+
+        if new_password != confirm_password:
+            return Response({'status': 'error', 'message': 'Passwords do not match'}, status=400)
+        if len(new_password) < 8:
+            return Response({'status': 'error', 'message': 'Password must be 8+ characters'}, status=400)
+
+        try:
+            record = OTPRecord.objects.get(email=email, otp=otp)
+            user = CustomUser.objects.get(email=email)
+
+            user.set_password(new_password)
+            user.password_changed = True
+            user.password_changed_date = timezone.now()
+            user.save()
+
+            record.delete()
+            return Response({'status': 'success', 'message': 'Password changed successfully!'})
+
+        except OTPRecord.DoesNotExist:
+            return Response({'status': 'error', 'message': 'Invalid or expired OTP'}, status=400)
+        except CustomUser.DoesNotExist:
+            return Response({'status': 'error', 'message': 'User not found'}, status=400)

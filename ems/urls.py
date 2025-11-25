@@ -18,4 +18,6 @@ urlpatterns = [
 
     
     path('check-duplicate-email/',CheckDuplicateEmail.as_view()),
+    path('send_forgot_password_otp/',SendForgotPasswordOTPView.as_view()),
+    path('reset_forgot_password_otp/',ResetPasswordWithOTPView.as_view()),
 ]

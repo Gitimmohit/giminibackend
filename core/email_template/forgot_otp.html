@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Secure Password Reset OTP</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background-color: #0a0a2a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #ffffff;
+    }
+    .email-container {
+      max-width: 600px;
+      margin: 20px auto;
+      background: linear-gradient(135deg, #1a1a4a 0%, #0f0c29 100%);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(78, 205, 196, 0.3);
+    }
+    .header {
+      background: linear-gradient(135deg, #4ecdc4, #2575fc);
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+      color: white;
+    }
+    .content {
+      padding: 35px 25px;
+      text-align: center;
+    }
+    .greeting {
+      font-size: 18px;
+      margin: 0 0 14px 0;
+      color: #4ecdc4;
+      font-weight: 500;
+    }
+    .message {
+      font-size: 15.5px;
+      line-height: 1.7;
+      color: rgba(255, 255, 255, 0.9);
+      margin: 0 0 30px 0;
+    }
+
+    /* OTP Box Only - Super Clean & One Line */
+    .otp-box {
+      background: rgba(78, 205, 196, 0.15);
+      border: 2px dashed #4ecdc4;
+      border-radius: 16px;
+      padding: 28px 20px;
+      margin: 30px auto;
+      max-width: 320px;
+      backdrop-filter: blur(12px);
+    }
+    .otp {
+      font-size: 42px;
+      font-weight: bold;
+      letter-spacing: 12px;
+      color: #4ecdc4;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 18px 24px;
+      border-radius: 14px;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 18px rgba(78, 205, 196, 0.7);
+      word-spacing: 20px;
+    }
+
+    .timer {
+      font-size: 14.5px;
+      color: #ff6b6b;
+      font-weight: 600;
+      margin: 22px 0 10px;
+    }
+    .security-note {
+      background: rgba(255, 107, 107, 0.12);
+      border-left: 4px solid #ff6b6b;
+      padding: 16px;
+      border-radius: 10px;
+      margin: 28px 0;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.9);
+      text-align: left;
+      line-height: 1.6;
+    }
+    .closing {
+      font-size: 15.5px;
+      color: rgba(255, 255, 255, 0.85);
+      margin: 28px 0 8px;
+      font-weight: 500;
+    }
+    .footer {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 24px;
+      text-align: center;
+      font-size: 12.5px;
+      color: rgba(255, 255, 255, 0.6);
+    } 
+
+    /* Mobile Perfect */
+    @media (max-width: 480px) {
+      .email-container { margin: 10px; border-radius: 16px; }
+      .header { padding: 35px 15px; }
+      .header h1 { font-size: 23px; }
+      .content { padding: 30px 20px; }
+      .greeting { font-size: 17px; }
+      .message { font-size: 15px; }
+      .otp-box { padding: 24px 16px; max-width: 280px; }
+      .otp { 
+        font-size: 32px !important; 
+        letter-spacing: 9px !important; 
+        padding: 14px 16px !important;
+        word-spacing: normal;
+      }
+      .timer, .closing { font-size: 14px; }
+      .security-note { font-size: 13.5px; padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header"> 
+      <h1>Password Reset Request</h1>
+    </div>
+
+    <div class="content">
+      <p class="greeting">Hello {{ name }},</p>
+      
+      <p class="message">
+        A password reset request was made for your account. 
+        Use the secure OTP below to continue.
+      </p>
+
+      <!-- Clean OTP Box Only -->
+      <div class="otp-box">
+        <div class="otp">{{ otp }}</div>
+      </div>
+
+      <p class="timer">This OTP expires in 10 minutes</p>
+
+      <div class="security-note">
+        <strong>Security Alert:</strong><br>
+        If you did <strong>not</strong> request this, someone may be trying to access your account. 
+        Please ignore this email and secure your account immediately.
+      </div>
+
+      <p class="closing">
+        Your account security is our top priority.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p>© 2025 Your App Name • All rights reserved</p>
+      <p>Automated security message — do not reply</p>
+    </div>
+  </div>
+</body>
+</html>
