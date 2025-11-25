@@ -507,11 +507,34 @@ class GetQuizUpcomingData(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
+
         now = timezone.now()
         after_24_hours = now + timedelta(hours=24)
-        quizzes = Quiz.objects.filter(is_deleted=False,quiz_date__gt=after_24_hours).select_related('user', 'created_by', 'modified_by', 'deleted_by').order_by('-quiz_date')
-        serializer = QuizSerializer(quizzes, many=True)
-        return Response({"success": True,"count": quizzes.count(),"upcoming_quizzes": serializer.data})
+
+        participated_quiz_ids = QuizParticipant.objects.filter(
+            user=user
+        ).values_list("quiz_id", flat=True)
+
+        quizzes = Quiz.objects.filter(
+            is_deleted=False,
+            quiz_date__gt=after_24_hours
+        ).exclude(
+            id__in=participated_quiz_ids
+        ).select_related(
+            'user', 'created_by', 'modified_by', 'deleted_by'
+        ).order_by('-quiz_date')
+       
+        # ---------- APPLY PAGINATION ----------
+        paginator = MyPageNumberPagination()
+        paginated_quizzes = paginator.paginate_queryset(quizzes, request)
+        serializer = QuizSerializer(paginated_quizzes, many=True)
+
+        return paginator.get_paginated_response({
+            "success": True,
+            "count": quizzes.count(),
+            "upcoming_quizzes": serializer.data
+        })
 
 
 
