@@ -57,7 +57,7 @@ python manage.py loaddata fixture\dump-masters-only.json
 python manage.py collectstatic
 
 # Start the application (development mode)
-python manage.py runserver 7000
+python manage.py runserver 10.21.128.78:7000
 
 ```
 

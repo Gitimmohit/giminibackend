@@ -8,6 +8,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.core.mail import send_mail
 from .serializer import *
+from cards.models import *
 from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter
 import uuid
@@ -306,9 +307,79 @@ class PutUserDetails(APIView):
     
     def put(self,request,pk,format=None): 
         modified_by, bkp_modified_by = hitby_user(self,request) 
+        data = request.data
         instance = CustomUser.objects.get(id=pk) 
-        serializer = CustomUserSerializer(instance, data=request.data, partial=True)
+        if request.data.get('is_approved') and not instance.reffered_amt_credit:
+            data['reffered_amt_credit'] = True
+            
+        serializer = CustomUserSerializer(instance, data=data, partial=True)
+        if instance.reffered_by and not instance.reffered_amt_credit:
+            reffer_instance = CustomUser.objects.filter(id=instance.reffered_by.id).first()
+            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id).count()
+            if reffer_instance.usertype == "STUDENT":
+                print("first")
+                transaction_amt = 25
+                Transactions.objects.create(user_id = reffer_instance.id,
+                                           request_type="CR",
+                                           current_status = "APPROVED",
+                                           request_time = timezone.now(),
+                                           transaction_amt = transaction_amt,
+                                           transaction_from = "REFFERAL",
+                                           created_by = modified_by,
+                                           bkp_created_by = bkp_modified_by,
+                                           )
+                
+                # add in wallet also 
+                wallet = Wallet.objects.filter(user_id= instance.reffered_by.id).first()
+                
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount + transaction_amt
+                    wallet.earn_amount = wallet.earn_amount + transaction_amt
+                    wallet.save()
+                else:
+                    Wallet.objects.create(
+                        user_id= instance.reffered_by.id,
+                        earn_amount = transaction_amt,
+                        current_wallet_amount=transaction_amt,
+                        created_at=timezone.now(),
+                    )
+                
+            elif reffer_instance.usertype == "PROMOTER":
+                # according to the pay stucture
+                ref_amnt = 40
+                if total_refferal > 2500 and total_refferal <= 6000 :
+                    ref_amnt = 50
+                if total_refferal > 6000 :
+                    ref_amnt = 60
+                
+
+                Transactions.objects.create(user_id = reffer_instance.id,
+                                           request_type="CR",
+                                           current_status = "APPROVED",
+                                           request_time = timezone.now(),
+                                           transaction_amt = ref_amnt,
+                                           transaction_from = "REFFERAL",
+                                           created_by = modified_by,
+                                           bkp_created_by = bkp_modified_by,
+                                           )
+
+                # add in wallet also 
+                wallet = Wallet.objects.filter(user= instance.reffered_by).first()
+                
+                if wallet:
+                    wallet.current_wallet_amount = wallet.current_wallet_amount + transaction_amt
+                    wallet.earn_amount = wallet.earn_amount + transaction_amt
+                    wallet.save()
+                else:
+                    Wallet.objects.create(
+                        user= instance.reffered_by,
+                        earn_amount = transaction_amt,
+                        current_wallet_amount=transaction_amt,
+                        created_at=timezone.now(),
+                    )
+
         if serializer.is_valid():
+
             serializer.save(modified_by=modified_by, bkp_modified_by=bkp_modified_by, modified_at=timezone.now())
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
         else:
