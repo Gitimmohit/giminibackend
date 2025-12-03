@@ -315,7 +315,7 @@ class PutUserDetails(APIView):
         serializer = CustomUserSerializer(instance, data=data, partial=True)
         if instance.reffered_by and not instance.reffered_amt_credit:
             reffer_instance = CustomUser.objects.filter(id=instance.reffered_by.id).first()
-            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id).count()
+            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id,reffered_amt_credit = True).count()
             if reffer_instance.usertype == "STUDENT":
                 print("first")
                 transaction_amt = 25
@@ -347,12 +347,11 @@ class PutUserDetails(APIView):
             elif reffer_instance.usertype == "PROMOTER":
                 # according to the pay stucture
                 ref_amnt = 40
-                if total_refferal > 2500 and total_refferal <= 6000 :
+                if total_refferal > 2499 and total_refferal <= 5999 :
                     ref_amnt = 50
-                if total_refferal > 6000 :
+                if total_refferal > 5999 :
                     ref_amnt = 60
                 
-
                 Transactions.objects.create(user_id = reffer_instance.id,
                                            request_type="CR",
                                            current_status = "APPROVED",
@@ -367,14 +366,14 @@ class PutUserDetails(APIView):
                 wallet = Wallet.objects.filter(user= instance.reffered_by).first()
                 
                 if wallet:
-                    wallet.current_wallet_amount = wallet.current_wallet_amount + transaction_amt
-                    wallet.earn_amount = wallet.earn_amount + transaction_amt
+                    wallet.current_wallet_amount = wallet.current_wallet_amount + ref_amnt
+                    wallet.earn_amount = wallet.earn_amount + ref_amnt
                     wallet.save()
                 else:
                     Wallet.objects.create(
                         user= instance.reffered_by,
-                        earn_amount = transaction_amt,
-                        current_wallet_amount=transaction_amt,
+                        earn_amount = ref_amnt,
+                        current_wallet_amount=ref_amnt,
                         created_at=timezone.now(),
                     )
 
