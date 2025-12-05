@@ -201,9 +201,15 @@ class AddPayment(APIView):
         print("AddContactDetails REQUEST DATA==", request.data) 
         data=request.data
         user = request.data.get('user',None)
-        data['current_status'] = "PENDING"
+        # data['current_status'] = "PENDING"
         
         transactions_instance = Transactions.objects.filter(is_first_transaction = True,user_id = user).first()
+        if transactions_instance and request.FILES.get('transaction_file'):
+            old_file = transactions_instance.transaction_file
+            if old_file:
+                old_path = old_file.path
+                if os.path.exists(old_path):
+                    os.remove(old_path)
         if transactions_instance :
             serializer = TransactionsSerializer(transactions_instance,data=request.data, partial=True)
         else:

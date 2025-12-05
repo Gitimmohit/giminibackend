@@ -145,7 +145,7 @@ class QuizParticipant(models.Model):
 
 def transaction_file_path(instance, filename):  
     user_alias = instance.user.email  
-    return f"{user_alias}/transactions/transaction_file/{filename}"
+    return f"{user_alias}/transactions/{filename}"
 
 class Transactions(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
