@@ -143,7 +143,9 @@ class QuizParticipant(models.Model):
     quiz                = models.ForeignKey('cards.Quiz', on_delete=models.SET_NULL, null=True, blank=True, related_name='quizparticipant_quiz', verbose_name="Quiz Id")
     participating_date  = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Participating At')
 
-
+def transaction_file_path(instance, filename):  
+    user_alias = instance.user.email  
+    return f"{user_alias}/transactions/transaction_file/{filename}"
 
 class Transactions(models.Model): 
     user = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
@@ -153,6 +155,7 @@ class Transactions(models.Model):
     transactionId = models.CharField(max_length=100,blank=True , null=True , verbose_name='transactionId')
     transaction_amt = models.CharField(max_length=100,blank=True , null=True , verbose_name='transaction_amt')
     transaction_from = models.CharField(max_length=100,blank=True , null=True , verbose_name='transaction_from')
+    transaction_file   = models.FileField(upload_to=transaction_file_path, default="")
 
     is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
     is_transaction_complete   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
