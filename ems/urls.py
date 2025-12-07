@@ -20,4 +20,7 @@ urlpatterns = [
     path('check-duplicate-email/',CheckDuplicateEmail.as_view()),
     path('send_forgot_password_otp/',SendForgotPasswordOTPView.as_view()),
     path('reset_forgot_password_otp/',ResetPasswordWithOTPView.as_view()),
+    
+    path('add_user_bank_details/',AddUserBankDetails.as_view()),
+    path('get_user_bank_details/',GetUserBankDetails.as_view()),
 ]

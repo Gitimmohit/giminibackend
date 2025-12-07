@@ -11,5 +11,9 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model =CustomUser
         fields = '__all__'
+class BankDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model =BankDetails
+        fields = '__all__'
 
  

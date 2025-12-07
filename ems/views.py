@@ -615,3 +615,30 @@ class ResetPasswordWithOTPView(APIView):
             return Response({'status': 'error', 'message': 'Invalid or expired OTP'}, status=400)
         except CustomUser.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found'}, status=400)
+        
+class AddUserBankDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):  
+        user = request.data.get('user',None)  
+        bank_instance = BankDetails.objects.filter(user_id = user).first()
+        if bank_instance :
+            serializer = BankDetailsSerializer(bank_instance,data=request.data, partial=True)
+        else:
+            serializer = BankDetailsSerializer(data=request.data, partial=True)
+        if serializer.is_valid(): 
+            serializer.save(created_by_id=request.user.id,bkp_created_by=request.user.fullname.upper() if request.user.fullname else None, created_at=timezone.now(), )
+            return Response({"status": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"status": "error", "data": serializer.errors})
+        
+class GetUserBankDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.query_params.get('user', None)  
+        bank_details = BankDetails.objects.filter(user_id=user_id).first() 
+        # if not bank_details:
+        #     return Response({"status": "success", "data": None, "message": "No bank details found for this user"},status=status.HTTP_200_OK)
+
+        serializer = BankDetailsSerializer(bank_details)
+        return Response({"status": "success", "data": serializer.data},status=status.HTTP_200_OK)

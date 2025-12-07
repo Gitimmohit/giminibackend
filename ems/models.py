@@ -68,3 +68,17 @@ class LoginDetail(models.Model):
 
     def __str__(self):
         return self.user_ip
+class BankDetails(models.Model): 
+    user         = models.ForeignKey(CustomUser, blank=True, on_delete=models.SET_NULL, null=True,related_name='bank_details_user')
+    ifsc_code    = models.CharField(max_length=500, verbose_name="IFSC Code", blank=True, null=True)
+    bank_name    = models.CharField(max_length=500, verbose_name="Bank Name", blank=True, null=True)
+    bank_branch_name = models.CharField(max_length=500, verbose_name="Bank Branch Name", blank=True, null=True)
+    bank_branch_address = models.CharField(max_length=500, verbose_name="Bank Branch Address", blank=True, null=True)
+    acc_type     = models.CharField(max_length=500, verbose_name="Account Type", blank=True, null=True)
+    account_no   = models.CharField(max_length=500, verbose_name="Account Number", blank=True, null=True)
+    confirm_account_no = models.CharField(max_length=500, verbose_name="Confirm Account Number", blank=True, null=True)
+    account_holder_name= models.CharField(max_length=500, verbose_name="Account Holder Name", blank=True, null=True)
+     
+    created_at   = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Created At')
+    created_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True,verbose_name='BankDetails Created By', related_name="bank_details_creater")
+    bkp_created_by = models.CharField(max_length=100, null=True, blank=True, verbose_name="BankDetails Created By")
