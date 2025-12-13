@@ -31,6 +31,7 @@ from .models import CustomUser, OTPRecord
 from cards.mypaginations import MyPageNumberPagination
 from core.utils import hitby_user 
 from django.core.mail import EmailMultiAlternatives
+from django.shortcuts import get_object_or_404
 
 # for the duplicate
 class CheckDuplicateEmail(APIView):
@@ -636,9 +637,34 @@ class GetUserBankDetails(APIView):
 
     def get(self, request):
         user_id = request.query_params.get('user', None)  
-        bank_details = BankDetails.objects.filter(user_id=user_id).first() 
-        # if not bank_details:
-        #     return Response({"status": "success", "data": None, "message": "No bank details found for this user"},status=status.HTTP_200_OK)
+        bank_details = BankDetails.objects.filter(user_id=user_id).first()  
 
         serializer = BankDetailsSerializer(bank_details)
         return Response({"status": "success", "data": serializer.data},status=status.HTTP_200_OK)
+class GetReferalDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.query_params.get('user')
+
+        if not user_id:
+            return Response({"error": "user parameter is required"}, status=400)
+ 
+        # Fetch the main user
+        user = get_object_or_404(CustomUser, id=user_id)
+
+        # Count direct referrals efficiently
+        referral_count = CustomUser.objects.filter(reffered_by_id=user_id).count()
+
+        # Fetch wallet details foqr the user (assuming one wallet per user)
+        wallet = Wallet.objects.filter(user=user).first()
+
+        # Default values if no wallet exists
+        own_current = 0.00
+        own_earn = 0.00
+
+        if wallet:
+            own_current = wallet.current_wallet_amount or 0.00
+            own_earn = wallet.earn_amount or 0.00
+
+        return Response({"user_id": user.id,"total_referrals": referral_count,"referalcode": user.referalcode,"current_wallet_amount": own_current,"earn_amount": own_earn,})

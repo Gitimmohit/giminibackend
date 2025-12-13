@@ -3,7 +3,9 @@ from django.db import models
 from django.utils import timezone
 from .managers import CustomUserManager
 
-
+def document_file_path(instance, filename):  
+    user_alias = instance.email  
+    return f"{user_alias}/documents/{filename}"
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     usertype            = models.CharField(default = "STUDENT",max_length=50, verbose_name="User Type", blank=True, null=True)
     first_payment       = models.CharField(default = "NOT DONE",max_length=50, verbose_name="First Payment", blank=True, null=True)
@@ -28,6 +30,12 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_payment          = models.BooleanField(default=False) 
     is_first_quiz       = models.BooleanField(default=False) 
     is_first_show       = models.BooleanField(default=False) 
+    kyc_status          = models.CharField(default="NOT SUBMITTED",verbose_name='Kyc Status')
+    kyc_submit_time     = models.DateTimeField(blank=True , null=True , verbose_name='Kyc Submit Time')
+    kyc_reject_reason   = models.TextField(max_length=100,blank=True , null=True , verbose_name='Kyc  Reject Reason')
+    document_type       = models.CharField(max_length=100,blank=True , null=True , verbose_name='Documnet Type')
+    document_number     = models.CharField(max_length=100,blank=True , null=True , verbose_name='Documnet Number')
+    document_file       = models.FileField(upload_to=document_file_path, default="",blank=True , null=True )
     last_password_reset_date     = models.DateField(auto_now_add=True,blank=True,null=True,verbose_name='Last Password Reset Date')
     next_password_reset_date     = models.DateField(auto_now_add=True,blank=True,null=True,verbose_name='Next Password Reset Date')
 
