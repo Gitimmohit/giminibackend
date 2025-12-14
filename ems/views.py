@@ -18,7 +18,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 import base64
 from django.core.files.base import ContentFile
 from rest_framework.exceptions import APIException
-
+from decouple import config
 # from core.common import get_financial_year, get_fy_month_year
 from django.http import JsonResponse
 from .models import *
@@ -115,13 +115,12 @@ class SendOTPAPIView(APIView):
             email_body = render_to_string('RegistrationOTP.html', {'email': email, 'otp_code': otp,'recipient_name':fullname,'support_email':support_email,})
             plain_message = strip_tags(email_body)
 
-            print("otp--", otp)
 
             # Send mail using send_mail
             send_mail(
                 subject='One-Time Password (OTP) Verification',
                 message=plain_message,  # Plain text message
-                from_email=os.environ.get('EMAIL_HOST_USER', 'mohitetechcube@gmail.com'),  # Ensure EMAIL_HOST_USER is correctly fetched
+                from_email=config('EMAIL_HOST_USER'),  # Ensure EMAIL_HOST_USER is correctly fetched
                 recipient_list=[email],
                 fail_silently=False,
                 html_message=email_body  # HTML message

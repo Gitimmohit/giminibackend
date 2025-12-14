@@ -615,13 +615,13 @@ class ShowBookingCreateAPI(APIView):
                 # Prepare email content
                 # ---------------------------------------
                 user_email = request.data.get('email',None)  # who booked
-                other_email = "mohitetechcube@gmail.com"             # another recipient
+                other_email = "info@geminiplanetarium.com"             # another recipient
                 recipient_list = [user_email, other_email]      # multiple recipients
 
                 context = {
                     "booking": booking,
                     "recipient_name":request.data.get('name'),  # optional, use username
-                    "support_email": "support@yourdomain.com",
+                    "support_email": "info@geminiplanetarium.com",
                 }
 
                 html_message = render_to_string("show_booking.html", context)
@@ -725,13 +725,13 @@ class ContactusCreateAPI(APIView):
                 # ---------------------------------------
                 recipient_emails = [
                     serializer.data.get("email"),      # email of person who booked
-                    "mohitetechcube@gmail.com",                 # another recipient
+                    "info@geminiplanetarium.com",                 # another recipient
                 ]
 
                 email = EmailMultiAlternatives(
                     subject="Contact Us",
                     body=text_content,
-                    from_email="noreply@yourdomain.com",
+                    from_email="info@geminiplanetarium.com",
                     to=recipient_emails,   # send to all in list
                 )
                 email.attach_alternative(html_content, "text/html")
