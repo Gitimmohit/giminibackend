@@ -109,7 +109,7 @@ class SendOTPAPIView(APIView):
                 OTPRecord.objects.filter(email=email).delete()
 
                 OTPRecord.objects.create(email=email, token=token, otp=otp)
-
+                print("otp-",otp)
             # Compose email content
             recipients = [email]
             email_body = render_to_string('RegistrationOTP.html', {'email': email, 'otp_code': otp,'recipient_name':fullname,'support_email':support_email,})
@@ -167,12 +167,12 @@ class VerifyOTPAPIView(APIView):
         try:
             print("otp_entered==",otp_entered,otp_record.otp)
             if otp_entered == otp_record.otp:
-                print("first")
+                print("first",referralCode)
                 # OTP is correct, hash the password and create user 
                 refferal = CustomUser.objects.filter(referalcode = referralCode).first()
                 referalcode = generate_unique_referral_code()
                 hashed_password = make_password(password)
-
+                print("refferal",refferal)
                 CustomUser.objects.create(
                     email=email, 
                     password=hashed_password,
@@ -346,12 +346,15 @@ class PutUserDetails(APIView):
                 
             elif reffer_instance.usertype == "PROMOTER":
                 # according to the pay stucture
-                ref_amnt = 40
-                if total_refferal > 2499 and total_refferal <= 5999 :
+                print("total_refferal",total_refferal)
+                ref_amnt = 25
+                if total_refferal > 1500 and total_refferal <= 3499 :
+                    ref_amnt = 35
+                if total_refferal > 3500 and total_refferal <= 4999 :
+                    ref_amnt = 45
+                if total_refferal > 5000 :
                     ref_amnt = 50
-                if total_refferal > 5999 :
-                    ref_amnt = 60
-                
+
                 Transactions.objects.create(user_id = reffer_instance.id,
                                            request_type="CR",
                                            current_status = "APPROVED",

@@ -314,6 +314,12 @@ class PutTransactionDetails(APIView):
         transaction_amt = Decimal(transaction_amt) if transaction_amt else Decimal("0")
 
         current_instance = Transactions.objects.get(id=pk)
+        if current_instance and request.FILES.get('transaction_file'):
+            old_file = current_instance.transaction_file
+            if old_file:
+                old_path = old_file.path
+                if os.path.exists(old_path):
+                    os.remove(old_path)
         is_credit = current_instance.is_transaction_complete
 
         serializer = TransactionsSerializer(current_instance, data=request.data, partial=True)
