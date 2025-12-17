@@ -643,30 +643,208 @@ class GetUserBankDetails(APIView):
 
         serializer = BankDetailsSerializer(bank_details)
         return Response({"status": "success", "data": serializer.data},status=status.HTTP_200_OK)
+
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+from django.shortcuts import get_object_or_404
+from django.db.models import (
+    Count, Sum, DecimalField, Value, Case, When
+)
+from django.db.models.functions import TruncMonth, Cast
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from ems.models import *
+
+
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+from django.shortcuts import get_object_or_404
+from django.db.models import Count, Sum, DecimalField, Value, Case, When
+from django.db.models.functions import TruncMonth, Cast
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from ems.models import *
+
+
 class GetReferalDetails(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user_id = request.query_params.get('user')
+        user_id = request.query_params.get("user")
+        filter_type = request.query_params.get("filter_type")
 
         if not user_id:
             return Response({"error": "user parameter is required"}, status=400)
- 
-        # Fetch the main user
+
+        # ---------- USER ----------
         user = get_object_or_404(CustomUser, id=user_id)
 
-        # Count direct referrals efficiently
-        referral_count = CustomUser.objects.filter(reffered_by_id=user_id).count()
+        filters = {}
+        performance_data = []
 
-        # Fetch wallet details foqr the user (assuming one wallet per user)
+        # ---------- STUDENT ----------
+        if filter_type == "STUDENT":
+            filters["usertype"] = "STUDENT"
+
+        # ---------- SALES (NEW – ONLY ADDITION) ----------
+        if filter_type == "SALES":
+            filters["usertype"] = "PROMOTER"
+
+            today = datetime.now()
+            current_month_start = today.replace(day=1)
+            last_3_month_start = (today - relativedelta(months=3)).replace(day=1)
+
+            # 🔹 Current month referrals
+            referral_count_month = CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                usertype="STUDENT",
+                created_at__gte=current_month_start
+            ).count()
+
+            # 🔹 Total active promoters
+            total_active_promoters = CustomUser.objects.filter(
+                usertype="PROMOTER",
+                is_active=True
+            ).count()
+
+            # 🔹 Recent 5 referrals
+            recent_5_referrals = list(
+                CustomUser.objects.filter(
+                    reffered_by_id=user_id,
+                    usertype="STUDENT"
+                )
+                .order_by("-created_at")[:5]
+                .values("id", "fullname", "created_at")
+            )
+
+            # 🔹 Monthly referral performance
+            referral_qs = (
+                CustomUser.objects
+                .filter(
+                    reffered_by_id=user_id,
+                    usertype="STUDENT",
+                    created_at__gte=last_3_month_start
+                )
+                .annotate(month=TruncMonth("created_at"))
+                .values("month")
+                .annotate(referral=Count("id"))
+            )
+
+            referral_dict = {
+                r["month"].strftime("%b"): r["referral"]
+                for r in referral_qs
+            }
+
+            performance_data = []
+            for i in range(3, -1, -1):
+                month_date = today - relativedelta(months=i)
+                month_name = month_date.strftime("%b")
+
+                performance_data.append({
+                    "month": month_name,
+                    "referral": referral_dict.get(month_name, 0),
+                    "target": 20,  # static target
+                })
+
+        # ---------- PROMOTER (UNCHANGED) ----------
+        if filter_type == "PROMOTER":
+            filters["usertype"] = "STUDENT"
+
+            today = datetime.now()
+            start_date = (today - relativedelta(months=3)).replace(day=1)
+
+            referral_qs = (
+                CustomUser.objects
+                .filter(
+                    reffered_by_id=user_id,
+                    usertype="STUDENT",
+                    created_at__gte=start_date
+                )
+                .annotate(month=TruncMonth("created_at"))
+                .values("month")
+                .annotate(referrals=Count("id"))
+            )
+
+            referral_dict = {
+                r["month"].strftime("%b"): r["referrals"]
+                for r in referral_qs
+            }
+
+            clean_amount = Case(
+                When(transaction_amt__isnull=True, then=Value(0)),
+                When(transaction_amt__iexact="none", then=Value(0)),
+                When(transaction_amt="", then=Value(0)),
+                default=Cast(
+                    "transaction_amt",
+                    DecimalField(max_digits=10, decimal_places=2)
+                ),
+                output_field=DecimalField(max_digits=10, decimal_places=2)
+            )
+
+            earnings_qs = (
+                Transactions.objects
+                .filter(
+                    user=user,
+                    created_at__gte=start_date,
+                    transaction_from="REFFERAL",
+                    is_deleted=False
+                )
+                .annotate(
+                    month=TruncMonth("created_at"),
+                    clean_amt=clean_amount
+                )
+                .values("month")
+                .annotate(earnings=Sum("clean_amt"))
+            )
+
+            earnings_dict = {
+                e["month"].strftime("%b"): e["earnings"] or 0
+                for e in earnings_qs
+            }
+
+            performance_data = []
+            for i in range(3, -1, -1):
+                month_date = today - relativedelta(months=i)
+                month_name = month_date.strftime("%b")
+
+                performance_data.append({
+                    "month": month_name,
+                    "referrals": referral_dict.get(month_name, 0),
+                    "earnings": float(earnings_dict.get(month_name, 0)),
+                })
+
+        # ---------- TOTAL REFERRALS ----------
+        referral_count = CustomUser.objects.filter(
+            reffered_by_id=user_id,
+            **filters
+        ).count()
+
+        # ---------- WALLET ----------
         wallet = Wallet.objects.filter(user=user).first()
+        current_wallet_amount = wallet.current_wallet_amount if wallet else 0
+        earn_amount = wallet.earn_amount if wallet else 0
 
-        # Default values if no wallet exists
-        own_current = 0.00
-        own_earn = 0.00
+        # ---------- RESPONSE ----------
+        return Response({
+            "user_id": user.id,
+            "referalcode": user.referalcode,
+            "total_referrals": referral_count,
 
-        if wallet:
-            own_current = wallet.current_wallet_amount or 0.00
-            own_earn = wallet.earn_amount or 0.00
+            # SALES only extras
+            "total_referrals_current_month": referral_count_month if filter_type == "SALES" else 0,
+            "total_active_promoters": total_active_promoters if filter_type == "SALES" else 0,
+            "recent_5_referrals": recent_5_referrals if filter_type == "SALES" else [],
 
-        return Response({"user_id": user.id,"total_referrals": referral_count,"referalcode": user.referalcode,"current_wallet_amount": own_current,"earn_amount": own_earn,})
+            "current_wallet_amount": float(current_wallet_amount or 0),
+            "earn_amount": float(earn_amount or 0),
+            "performanceData": performance_data,
+        })
