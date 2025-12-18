@@ -706,12 +706,13 @@ class GetReferalDetails(APIView):
             # 🔹 Current month referrals
             referral_count_month = CustomUser.objects.filter(
                 reffered_by_id=user_id,
-                usertype="STUDENT",
+                usertype="PROMOTER",
                 created_at__gte=current_month_start
             ).count()
 
             # 🔹 Total active promoters
             total_active_promoters = CustomUser.objects.filter(
+                reffered_by_id=user_id,
                 usertype="PROMOTER",
                 is_active=True
             ).count()
@@ -720,10 +721,10 @@ class GetReferalDetails(APIView):
             recent_5_referrals = list(
                 CustomUser.objects.filter(
                     reffered_by_id=user_id,
-                    usertype="STUDENT"
+                    usertype="PROMOTER"
                 )
                 .order_by("-created_at")[:5]
-                .values("id", "fullname", "created_at")
+                .values("id", "fullname", "is_active","created_at")
             )
 
             # 🔹 Monthly referral performance
@@ -731,7 +732,7 @@ class GetReferalDetails(APIView):
                 CustomUser.objects
                 .filter(
                     reffered_by_id=user_id,
-                    usertype="STUDENT",
+                    usertype="PROMOTER",
                     created_at__gte=last_3_month_start
                 )
                 .annotate(month=TruncMonth("created_at"))
@@ -752,7 +753,7 @@ class GetReferalDetails(APIView):
                 performance_data.append({
                     "month": month_name,
                     "referral": referral_dict.get(month_name, 0),
-                    "target": 20,  # static target
+                    "target": 100,  # static target
                 })
 
         # ---------- PROMOTER (UNCHANGED) ----------
