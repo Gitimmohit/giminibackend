@@ -12,6 +12,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email               = models.EmailField(null=True, blank=True, unique=True)
     mobilenumber        = models.CharField(max_length=12, blank=True, null=True) 
     referalcode         = models.CharField(unique=True,max_length=12, blank=True, null=True) 
+    refered_code        = models.CharField(max_length=12, blank=True, null=True) 
     reffered_by         = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, related_name="customuser_reffered_by")
     reffered_amt_credit = models.BooleanField(default=False)
     password            = models.CharField(max_length=100, null=False)
