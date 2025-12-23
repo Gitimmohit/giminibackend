@@ -33,6 +33,21 @@ from core.utils import hitby_user
 from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import get_object_or_404
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
+from django.shortcuts import get_object_or_404
+from django.db.models import (
+    Count, Sum, DecimalField, Value, Case, When
+)
+from django.db.models.functions import TruncMonth, Cast
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from ems.models import *
+
 # for the duplicate
 class CheckDuplicateEmail(APIView):
     def post(self, request):
@@ -158,6 +173,7 @@ class VerifyOTPAPIView(APIView):
         usertype = request.data.get('usertype')
         dob = request.data.get('dob')
         mobilenumber = request.data.get('mobilenumber')
+        refered_code = request.data.get('refered_code',None)
 
         try:
             otp_record = OTPRecord.objects.get(token=token, email=email)
@@ -183,6 +199,7 @@ class VerifyOTPAPIView(APIView):
                     fullname=fullname,
                     dob=dob,
                     usertype=usertype,
+                    refered_code = refered_code
                     )
                 print("second")
                 
@@ -308,6 +325,13 @@ class PutUserDetails(APIView):
     def put(self,request,pk,format=None): 
         modified_by, bkp_modified_by = hitby_user(self,request) 
         data = request.data
+        refered_inst = CustomUser.objects.filter(refered_code = request.data.get('refered_code',None)).first()
+        
+        CustomUser.objects.filter(id=pk).update(
+            reffered_by_id=refered_inst.id if refered_inst else None,
+            refered_code = request.data.get('refered_code',None)
+        )
+        
         instance = CustomUser.objects.get(id=pk) 
         if request.data.get('is_approved') and not instance.reffered_amt_credit:
             data['reffered_amt_credit'] = True
@@ -315,8 +339,8 @@ class PutUserDetails(APIView):
         serializer = CustomUserSerializer(instance, data=data, partial=True)
         if instance.reffered_by and not instance.reffered_amt_credit:
             reffer_instance = CustomUser.objects.filter(id=instance.reffered_by.id).first()
-            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id,reffered_amt_credit = True).count()
-            if reffer_instance.usertype == "STUDENT":
+            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id,reffered_amt_credit = True, usertype = 'PROMOTER').count() 
+            if reffer_instance.usertype == "STUDENT" and instance.usertype == "STUDENT":
                 print("first")
                 transaction_amt = 25
                 Transactions.objects.create(user_id = reffer_instance.id,
@@ -344,7 +368,7 @@ class PutUserDetails(APIView):
                         created_at=timezone.now(),
                     )
                 
-            elif reffer_instance.usertype == "PROMOTER":
+            elif reffer_instance.usertype == "PROMOTER" and instance.usertype == "PROMOTER" :
                 # according to the pay stucture
                 print("total_refferal",total_refferal)
                 ref_amnt = 25
@@ -498,58 +522,6 @@ class CheckUserPhone(APIView):
         else:
             return Response({'status': 'success', 'message': 'No duplicates found'})
         
-# class SendForgotPasswordOtp(APIView):
-#     def post(self, request):
-#         email = request.data.get('email', '').strip().lower()
-
-#         if not email:
-#             return Response({'status': 'error','message': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Always delete old OTP first (even if user doesn't exist)
-#         OTPRecord.objects.filter(email=email).delete()
-
-#         # Check if user exists
-#         user_exists = CustomUser.objects.filter(email=email, is_active=True).exists()
-
-#         if not user_exists:
-#             # Don't tell user "not found" → security best practice
-#             return Response({'status': 'success','message': 'If your email is registered, an OTP has been sent.'}, status=status.HTTP_200_OK)
-
-#         # Generate OTP
-#         otp = ''.join(random.choices(string.digits, k=6))
-
-#         # Save in OTPRecord only if user exists
-#         OTPRecord.objects.create(email=email,otp=otp,token=uuid.uuid4())
-
-#         # Send Email
-#         try:
-#             user = CustomUser.objects.get(email=email)
-#             context = {
-#                 'otp': otp,
-#                 'name': user.fullname or email.split('@')[0],
-#                 'expiry': 10
-#             }
-
-#             html_content = render_to_string('forgot_otp.html', context)
-#             text_content = strip_tags(html_content)
-
-#             email_msg = EmailMultiAlternatives(
-#                 subject="Your Password Reset OTP",
-#                 body=text_content,
-#                 from_email="OTP",
-#                 to=[email]
-#             )
-#             email_msg.attach_alternative(html_content, "text/html")
-#             email_msg.send()
-
-#         except Exception as e:
-#             print(f"Email send failed: {e}")
-#             # Still return success message (don't reveal failure)
-#             pass
-
-#         return Response({'status': 'success','message': 'If your email is registered, an OTP has been sent.'}, status=status.HTTP_200_OK)
-  
-
 # views.py
 class SendForgotPasswordOTPView(APIView):
     def post(self, request):
@@ -645,37 +617,9 @@ class GetUserBankDetails(APIView):
         return Response({"status": "success", "data": serializer.data},status=status.HTTP_200_OK)
 
 
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-
-from django.shortcuts import get_object_or_404
-from django.db.models import (
-    Count, Sum, DecimalField, Value, Case, When
-)
-from django.db.models.functions import TruncMonth, Cast
-
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-
-from ems.models import *
 
 
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
-
-from django.shortcuts import get_object_or_404
-from django.db.models import Count, Sum, DecimalField, Value, Case, When
-from django.db.models.functions import TruncMonth, Cast
-
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-
-from ems.models import *
-
-
-class GetReferalDetails(APIView):
+class GetDashboardDetails(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

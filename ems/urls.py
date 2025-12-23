@@ -23,5 +23,5 @@ urlpatterns = [
     
     path('add_user_bank_details/',AddUserBankDetails.as_view()),
     path('get_user_bank_details/',GetUserBankDetails.as_view()),
-    path('get_referal_details/',GetReferalDetails.as_view()),
+    path('get_dashboard_details/',GetDashboardDetails.as_view()),
 ]

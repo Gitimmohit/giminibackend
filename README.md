@@ -17,7 +17,7 @@ python -m venv .gimini
 # Virtualenv modules installation (Windows based systems) (One time installation)
 pip install virtualenv
 
-networksetup -getinfo Wi-Fi #for ipconfig
+networksetup -getinfo Wi-Fi #for ipconfig for mac
 
 python -m virtualenv .gimini
 
