@@ -92,3 +92,11 @@ class ContactUsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contactus
         fields = "__all__"
+
+# -----------------------------
+#  Website SERIALIZER
+# -----------------------------
+class WebsiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = website
+        fields = "__all__"

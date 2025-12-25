@@ -158,7 +158,7 @@ class Transactions(models.Model):
     transaction_file   = models.FileField(upload_to=transaction_file_path, default="")
 
     is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
-    is_transaction_complete   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
+    is_transaction_complete   = models.BooleanField(default=False,verbose_name="Transaction Complication",null=True,blank=True,)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Transactions_deletor")
     deleted_at   = models.DateTimeField(null=True)
@@ -203,3 +203,15 @@ class Contactus(models.Model):
     subject=models.TextField(max_length=150, null=True, blank=True)
     message=models.TextField(max_length=150, null=True, blank=True)
     created_at=models.DateTimeField(null=True, blank=True, default=timezone.now)
+
+
+class website(models.Model):
+    total_visitor=models.CharField(max_length=100,blank=True, null=True)
+    shows_conducted=models.CharField(blank=True, null=True)  
+    school_partner =models.CharField(max_length=200,null=True, blank=True)
+    visitor_ratings=models.CharField(max_length=150, null=True, blank=True)
+    total_visitor_ratings=models.CharField(max_length=150, null=True, blank=True)
+    quiz_participated=models.CharField(max_length=100,blank=True, null=True)
+    price_distributed=models.CharField(max_length=100,blank=True, null=True)
+    total_price_value=models.CharField(max_length=100,blank=True, null=True)
+    next_quiz_startdate=models.DateTimeField(max_length=100,blank=True, null=True)

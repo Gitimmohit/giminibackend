@@ -43,4 +43,12 @@ urlpatterns = [
     # ContactusUS
     path('contact_us/',ContactusCreateAPI.as_view()),
     path('get-contact-show/',ContactUsListAPI.as_view()),
+# for website
+    path("add_webinfo/", AddWebsiteInfoView.as_view()),
+    path("get_webinfo/", GetWebsiteInfoView.as_view()),
+    path("put_webinfo/<int:pk>/", UpdateWebsiteInfoView.as_view()),
+# getting website all info 
+    path("webinfo/", GetWebInfoView.as_view()),
+
+    path("dashboardAdmin/", GetDashBoardInfo.as_view()),
 ]

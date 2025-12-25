@@ -23,6 +23,7 @@ from decouple import config
 from django.http import JsonResponse
 from .models import *
 from .serializer import *
+from cards.serializer import *
 import random
 import string
 from django.db import transaction
@@ -316,7 +317,13 @@ class GetUserDetails(ListAPIView):
     search_fields = ['usertype', 'email', 'mobilenumber','fullname','school_name']
  
     def get_queryset(self):
-        queryset = self.queryset.filter()
+        request_from= self.request.query_params.get('from')
+        filters = {}
+        if request_from == "referral":
+            filters['reffered_by'] = self.request.user.id
+
+
+        queryset = self.queryset.filter(**filters)
         return queryset
 
 class PutUserDetails(APIView):
@@ -661,15 +668,7 @@ class GetDashboardDetails(APIView):
                 is_active=True
             ).count()
 
-            # 🔹 Recent 5 referrals
-            recent_5_referrals = list(
-                CustomUser.objects.filter(
-                    reffered_by_id=user_id,
-                    usertype="PROMOTER"
-                )
-                .order_by("-created_at")[:5]
-                .values("id", "fullname", "is_active","created_at")
-            )
+            
 
             # 🔹 Monthly referral performance
             referral_qs = (
@@ -773,10 +772,29 @@ class GetDashboardDetails(APIView):
             **filters
         ).count()
 
+        # 🔹 Recent 5 referrals
+        recent_5_referrals = list(
+            CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                **filters
+            )
+            .order_by("-created_at")[:5]
+            .values("id", "fullname", "is_active","created_at")
+        )
+
         # ---------- WALLET ----------
         wallet = Wallet.objects.filter(user=user).first()
         current_wallet_amount = wallet.current_wallet_amount if wallet else 0
         earn_amount = wallet.earn_amount if wallet else 0
+
+        # Upcoming 5 quizzes
+        quiz_qs = Quiz.objects.filter(
+            is_deleted=False,
+            is_completed=False,
+            quiz_date__gte=timezone.now()
+        ).order_by("quiz_date")[:5]
+
+        quiz_serializer = QuizSerializer(quiz_qs, many=True)
 
         # ---------- RESPONSE ----------
         return Response({
@@ -787,9 +805,11 @@ class GetDashboardDetails(APIView):
             # SALES only extras
             "total_referrals_current_month": referral_count_month if filter_type == "SALES" else 0,
             "total_active_promoters": total_active_promoters if filter_type == "SALES" else 0,
-            "recent_5_referrals": recent_5_referrals if filter_type == "SALES" else [],
+            "recent_5_referrals": recent_5_referrals,
 
             "current_wallet_amount": float(current_wallet_amount or 0),
             "earn_amount": float(earn_amount or 0),
             "performanceData": performance_data,
+
+            "upcoming_quizzes": quiz_serializer.data,
         })

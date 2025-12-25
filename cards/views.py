@@ -15,7 +15,9 @@ from django.contrib.auth.hashers import *
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 import base64
 import os
-
+from django.db.models import Sum
+from django.db.models.functions import Cast
+from django.db.models import DecimalField
 from django.core.files.base import ContentFile
 from datetime import timedelta ,time
 from django.utils import timezone
@@ -966,3 +968,160 @@ class AddQuizParticipant(APIView):
             print("error --- ",e)
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             return Response({"status": "error","message": "Invalid data in one or more rows.","errors": serializer.errors,"total_records": total_records,"saved_count": 0},status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class AddWebsiteInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = WebsiteSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Website info added successfully", "data": serializer.data},
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class GetWebsiteInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk=None):
+        # SINGLE RECORD
+        if pk:
+            try:
+                obj = website.objects.get(id=pk)
+            except website.DoesNotExist:
+                return Response(
+                    {"error": "Website info not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = WebsiteSerializer(obj)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # LIST ALL
+        queryset = website.objects.all().order_by("-id")
+        serializer = WebsiteSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class UpdateWebsiteInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        try:
+            obj = website.objects.get(id=pk)
+        except website.DoesNotExist:
+            return Response(
+                {"error": "Website info not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = WebsiteSerializer(obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Website info updated successfully", "data": serializer.data},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class GetWebInfoView(APIView):
+    def get(self, request):
+
+        # Website Info
+        website_qs = website.objects.all().order_by("-id")[:1]
+        website_serializer = WebsiteSerializer(website_qs, many=True)
+
+        # Upcoming 3 quizzes
+        quiz_qs = Quiz.objects.filter(
+            is_deleted=False,
+            is_completed=False,
+            quiz_date__gte=timezone.now()
+        ).order_by("quiz_date")[:3]
+
+        quiz_serializer = QuizSerializer(quiz_qs, many=True)
+
+        return Response(
+            {
+                "website_info": website_serializer.data,
+                "upcoming_quizzes": quiz_serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
+
+class GetDashBoardInfo(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        # -------- Quiz --------
+        total_quiz = Quiz.objects.filter(is_deleted=False).count()
+
+        # -------- Users --------
+        users_qs = CustomUser.objects.filter(is_deleted=False)
+
+        total_user = users_qs.count()
+
+        active_user = users_qs.filter(is_active=True).count()
+        pending_user = users_qs.filter(is_approved=False).count()
+
+        total_students = users_qs.filter(
+            is_active=True,
+            usertype="STUDENT"
+        ).count()
+
+        total_sales = users_qs.filter(
+            is_active=True,
+            usertype="SALES"
+        ).count()
+
+        total_promoters = users_qs.filter(
+            is_active=True,
+            usertype="PROMOTER"
+        ).count()
+
+        # -------- Transactions --------
+        txn_qs = Transactions.objects.filter(is_deleted=False).annotate(
+            amt=Cast("transaction_amt", DecimalField(max_digits=12, decimal_places=2))
+        )
+
+        total_cr_amount = txn_qs.filter(request_type="CR").aggregate(
+            total=Sum("amt")
+        )["total"] or 0
+        pending_txn_count = txn_qs.filter(
+            current_status="PENDING"
+        ).count()
+
+
+        total_dr_amount = txn_qs.filter(request_type="DR").aggregate(
+            total=Sum("amt")
+        )["total"] or 0
+
+        net_balance = total_cr_amount - total_dr_amount
+
+        # -------- Response --------
+        return Response(
+            {
+                "quiz": {
+                    "total": total_quiz,
+                },
+                "users": {
+                    "total": total_user,
+                    "active": active_user,
+                    "students": total_students,
+                    "sales": total_sales,
+                    "promoters": total_promoters,
+                    "pending_user":pending_user,
+                },
+                "transactions": {
+                    "total_cr": total_cr_amount,
+                    "total_dr": total_dr_amount,
+                    "net_balance": net_balance,
+                    "pending_txn_count":pending_txn_count,
+                },
+            },
+            status=status.HTTP_200_OK
+        )
