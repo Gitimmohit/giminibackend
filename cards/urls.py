@@ -27,13 +27,19 @@ urlpatterns = [
     path('get_quiz_transfer/', GetQuizTransfer.as_view()), 
     path('delete_quiz_details/', DeleteQuizDetails.as_view()),
     path('get_quiz_play_data/', GetQuizPlayData.as_view()),
+    
     path('get_upcoming_quiz_data/', GetQuizUpcomingData.as_view()),
+    path('get_registered_quiz_data/', GetQuizRegisteredData.as_view()),
+    path('get_played_quiz_data/', GetQuizPlayedData.as_view()),
+
+
     path('add_quiz_submission_details/', AddQuizSubmissionDetails.as_view()),
     path('quiz_report_view/', QuizReportView.as_view()),
     path('bulk_create_qestions_details/', BulkCreateBankStatement.as_view()),
 
 # for the quiz participate
     path('addquizparticipant/', AddQuizParticipant.as_view()),
+    path("start_quiz/", UpdateQuizParticipant.as_view(), name="start_quiz"),
 
 
     # Book show  

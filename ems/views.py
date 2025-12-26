@@ -643,8 +643,12 @@ class GetDashboardDetails(APIView):
         performance_data = []
 
         # ---------- STUDENT ----------
+        quiz_played = 0
+        quiz_participant = 0 
         if filter_type == "STUDENT":
             filters["usertype"] = "STUDENT"
+            quiz_participant = QuizParticipant.objects.filter(user=user_id).count()
+            quiz_played = QuizParticipant.objects.filter(user=user_id,quiz_status="PLAYED").count()
 
         # ---------- SALES (NEW – ONLY ADDITION) ----------
         if filter_type == "SALES":
@@ -806,6 +810,8 @@ class GetDashboardDetails(APIView):
             "total_referrals_current_month": referral_count_month if filter_type == "SALES" else 0,
             "total_active_promoters": total_active_promoters if filter_type == "SALES" else 0,
             "recent_5_referrals": recent_5_referrals,
+            "quiz_played":quiz_played,
+            "quiz_participant":quiz_participant,
 
             "current_wallet_amount": float(current_wallet_amount or 0),
             "earn_amount": float(earn_amount or 0),

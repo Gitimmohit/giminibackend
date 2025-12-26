@@ -142,6 +142,7 @@ class QuizParticipant(models.Model):
     quiz_status         = models.CharField(default="PENDING",max_length=100,blank=True , null=True , verbose_name='Quiz Status',)
     quiz                = models.ForeignKey('cards.Quiz', on_delete=models.SET_NULL, null=True, blank=True, related_name='quizparticipant_quiz', verbose_name="Quiz Id")
     participating_date  = models.DateTimeField(editable=False,default=timezone.now,verbose_name='Participating At')
+    played_date  = models.DateTimeField(verbose_name='Played At', null=True, blank=True,)
 
 def transaction_file_path(instance, filename):  
     user_alias = instance.user.email  

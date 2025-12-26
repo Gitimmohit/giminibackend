@@ -552,6 +552,69 @@ class GetQuizUpcomingData(APIView):
 
 
 
+
+class GetQuizRegisteredData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+
+        participated_quiz_ids = QuizParticipant.objects.filter(
+            user=user
+        ).exclude(quiz_status="PLAYED").values_list("quiz_id", flat=True)
+        quiz = Quiz.objects.first()
+        print(quiz.quiz_date, quiz.quiz_date.tzinfo)
+
+        quizzes = Quiz.objects.filter(
+            is_deleted=False,
+            id__in=participated_quiz_ids,
+            # quiz_date__gte=timezone.now()
+        ).exclude().select_related(
+            'user', 'created_by', 'modified_by', 'deleted_by'
+        ).order_by('-quiz_date')
+       
+        # ---------- APPLY PAGINATION ----------
+        paginator = MyPageNumberPagination()
+        paginated_quizzes = paginator.paginate_queryset(quizzes, request)
+        serializer = QuizSerializer(paginated_quizzes, many=True)
+
+        return paginator.get_paginated_response({
+            "success": True,
+            "count": quizzes.count(),
+            "participated_quizzes": serializer.data
+        })
+class GetQuizPlayedData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        participated_quiz_ids = QuizParticipant.objects.filter(
+            user=user,
+            quiz_status="PLAYED",
+        ).values_list("quiz_id", flat=True)
+
+        quizzes = Quiz.objects.filter(
+            is_deleted=False,
+            id__in=participated_quiz_ids
+        ).exclude().select_related(
+            'user', 'created_by', 'modified_by', 'deleted_by'
+        ).order_by('-quiz_date')
+       
+        # ---------- APPLY PAGINATION ----------
+        paginator = MyPageNumberPagination()
+        paginated_quizzes = paginator.paginate_queryset(quizzes, request)
+        serializer = QuizSerializer(paginated_quizzes, many=True)
+
+        return paginator.get_paginated_response({
+            "success": True,
+            "count": quizzes.count(),
+            "played_quizzes": serializer.data
+        })
+
+
+
      
 class AddQuizSubmissionDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -562,7 +625,7 @@ class AddQuizSubmissionDetails(APIView):
             created_by, bkp_created_by = hitby_user(self, request)
             serializer = QuizSubmissionSerializer(data=request.data)
             if serializer.is_valid():
-                submission = serializer.save(created_by=created_by,bkp_created_by=bkp_created_by,created_at=timezone.now(),submit_time=timezone.now())
+                submission = serializer.save(user=created_by,created_by=created_by,bkp_created_by=bkp_created_by,created_at=timezone.now(),submit_time=timezone.now())
                 quiz_id = request.data.get('quiz')  
                 if quiz_id:
                     Quiz.objects.filter(id=quiz_id, is_completed=False).update(is_completed=True)
@@ -572,7 +635,46 @@ class AddQuizSubmissionDetails(APIView):
 
         except Exception as e:
             return Response({"success": False, "error": "Something went wrong!","details": str(e)}, status=500)
-        
+
+
+
+class UpdateQuizParticipant(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        quiz_id = request.data.get("quiz")
+
+        if not quiz_id:
+            return Response(
+                {"success": False, "message": "Quiz ID is required"},
+                status=400
+            )
+
+        created_by, _ = hitby_user(self, request)
+
+        updated = QuizParticipant.objects.filter(
+            quiz_id=quiz_id,
+            user=created_by
+        ).update(
+            quiz_status="PLAYED",
+            played_date=timezone.now()
+        )
+
+        if updated == 0:
+            return Response(
+                {"success": False, "message": "Participant not found"},
+                status=404
+            )
+
+        return Response(
+            {"success": True, "message": "Quiz started successfully!"},
+            status=200
+        )
+
+
+
+
+
 class PutQuizDetails(APIView):
     permission_classes = [IsAuthenticated]
     
