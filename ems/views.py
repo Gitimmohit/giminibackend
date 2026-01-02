@@ -42,12 +42,14 @@ from django.db.models import (
     Count, Sum, DecimalField, Value, Case, When
 )
 from django.db.models.functions import TruncMonth, Cast
+from collections import defaultdict
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
+from calendar import monthrange
 from ems.models import *
+from decimal import Decimal
 
 # for the duplicate
 class CheckDuplicateEmail(APIView):
@@ -332,8 +334,7 @@ class PutUserDetails(APIView):
     def put(self,request,pk,format=None): 
         modified_by, bkp_modified_by = hitby_user(self,request) 
         data = request.data
-        refered_inst = CustomUser.objects.filter(refered_code = request.data.get('refered_code',None)).first()
-        
+        refered_inst = CustomUser.objects.filter(referalcode = request.data.get('refered_code',None)).first()
         CustomUser.objects.filter(id=pk).update(
             reffered_by_id=refered_inst.id if refered_inst else None,
             refered_code = request.data.get('refered_code',None)
@@ -345,12 +346,17 @@ class PutUserDetails(APIView):
             
         serializer = CustomUserSerializer(instance, data=data, partial=True)
         if instance.reffered_by and not instance.reffered_amt_credit:
-            reffer_instance = CustomUser.objects.filter(id=instance.reffered_by.id).first()
-            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id,reffered_amt_credit = True, usertype = 'PROMOTER').count() 
-            if reffer_instance.usertype == "STUDENT" and instance.usertype == "STUDENT":
-                print("first")
+            reffered_by_instance = CustomUser.objects.filter(id=instance.reffered_by.id).first()
+            created_at = reffered_by_instance.created_at
+
+            start_date = created_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+            end_day = monthrange(created_at.year, created_at.month)[1]
+            end_date = created_at.replace(day=end_day, hour=23, minute=59, second=59, microsecond=999999)
+            total_refferal = CustomUser.objects.filter(reffered_by_id=instance.reffered_by.id,reffered_amt_credit = True, usertype = 'STUDENT',created_at__gte=start_date,created_at__lte=end_date).count() 
+            if reffered_by_instance.usertype == "STUDENT" and instance.usertype == "STUDENT":
                 transaction_amt = 25
-                Transactions.objects.create(user_id = reffer_instance.id,
+                Transactions.objects.create(user_id = reffered_by_instance.id,
                                            request_type="CR",
                                            current_status = "APPROVED",
                                            request_time = timezone.now(),
@@ -375,9 +381,8 @@ class PutUserDetails(APIView):
                         created_at=timezone.now(),
                     )
                 
-            elif reffer_instance.usertype == "PROMOTER" and instance.usertype == "PROMOTER" :
+            elif reffered_by_instance.usertype == "PROMOTER" and instance.usertype == "STUDENT" :
                 # according to the pay stucture
-                print("total_refferal",total_refferal)
                 ref_amnt = 25
                 if total_refferal > 1500 and total_refferal <= 3499 :
                     ref_amnt = 35
@@ -386,7 +391,7 @@ class PutUserDetails(APIView):
                 if total_refferal > 5000 :
                     ref_amnt = 50
 
-                Transactions.objects.create(user_id = reffer_instance.id,
+                Transactions.objects.create(user_id = reffered_by_instance.id,
                                            request_type="CR",
                                            current_status = "APPROVED",
                                            request_time = timezone.now(),
@@ -410,6 +415,67 @@ class PutUserDetails(APIView):
                         current_wallet_amount=ref_amnt,
                         created_at=timezone.now(),
                     )
+
+                # if that student is fall into the promoter and that promoter is fall into the Channel Promoter .
+                if reffered_by_instance.reffered_by:
+                    print("reffered_by_instance.reffered_by",reffered_by_instance.reffered_by)
+                    cp_instance = CustomUser.objects.filter(id=reffered_by_instance.reffered_by.id).first()
+                    print("cp_instance.usertype=",cp_instance.usertype)
+                    if cp_instance.usertype == "CHANNEL PROMOTER" :
+                        # add in wallet also 
+                        promoter_total_ern_month = Transactions.objects.filter(
+                            user_id=reffered_by_instance.id,
+                            created_at__gte=start_date,
+                            created_at__lte=end_date,
+                            transaction_from="REFFERAL",
+                            request_type="CR",
+                            current_status="APPROVED",
+                        ).aggregate(
+                            total=Sum(
+                                Cast("transaction_amt", DecimalField(max_digits=12, decimal_places=2))
+                            )
+                        )["total"] or 0
+
+                        earning_percentage = 20
+                        if promoter_total_ern_month <= 200000:
+                            earning_percentage = 20
+                        elif promoter_total_ern_month <= 500000:
+                            earning_percentage = 30
+                        elif promoter_total_ern_month <= 1500000:
+                            earning_percentage = 40
+                        elif promoter_total_ern_month <= 2500000:
+                            earning_percentage = 50
+                        elif promoter_total_ern_month <= 3500000:
+                            earning_percentage = 60
+                        else:
+                            earning_percentage = 70
+
+                        commision_amt = (Decimal(ref_amnt) * Decimal(earning_percentage)) / Decimal(100)
+                        
+                        Transactions.objects.create(user_id = reffered_by_instance.reffered_by.id,
+                                            request_type="CR",
+                                            current_status = "APPROVED",
+                                            request_time = timezone.now(),
+                                            transaction_amt = commision_amt,
+                                            transaction_from = "CP PROMOTER REFFERAL",
+                                            created_by = modified_by,
+                                            bkp_created_by = bkp_modified_by,
+                                            )
+
+                        # add in wallet also 
+                        cp_wallet = Wallet.objects.filter(user= reffered_by_instance.reffered_by).first()
+                        
+                        if cp_wallet:
+                            cp_wallet.current_wallet_amount = cp_wallet.current_wallet_amount + commision_amt
+                            cp_wallet.earn_amount = cp_wallet.earn_amount + commision_amt
+                            cp_wallet.save()
+                        else:
+                            Wallet.objects.create(
+                                user= reffered_by_instance.reffered_by,
+                                earn_amount = commision_amt,
+                                current_wallet_amount=commision_amt,
+                                created_at=timezone.now(),
+                            )
 
         if serializer.is_valid():
 
@@ -818,4 +884,130 @@ class GetDashboardDetails(APIView):
             "performanceData": performance_data,
 
             "upcoming_quizzes": quiz_serializer.data,
+        })
+
+
+class GetCpDashboard(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_id = request.query_params.get("user")
+
+        if not user_id:
+            return Response({"error": "user parameter is required"}, status=400)
+
+        # ---------- USER ----------
+        user = get_object_or_404(CustomUser, id=user_id)
+
+        today = timezone.now()
+        current_year = today.year
+        current_month = today.month
+        current_month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # 🔹 Current month promoter referrals
+        referral_count_month = CustomUser.objects.filter(
+            reffered_by_id=user_id,
+            usertype="PROMOTER",
+            created_at__gte=current_month_start
+        ).count()
+
+        # 🔹 Total promoters
+        total_promoters = CustomUser.objects.filter(
+            reffered_by_id=user_id,
+            usertype="PROMOTER"
+        ).count()
+
+        total_active_promoters = CustomUser.objects.filter(
+            reffered_by_id=user_id,
+            usertype="PROMOTER",
+            is_active = True,
+        ).count()
+
+        # 🔹 Promoters referred by CP
+        all_reffered_promoter = CustomUser.objects.filter(
+            reffered_by_id=user_id,
+            usertype="PROMOTER"
+        )
+
+        # 🔹 Total students referred by promoters
+        total_reffered_student = CustomUser.objects.filter(
+            reffered_by_id__in=all_reffered_promoter,
+            usertype="STUDENT",
+        ).count()
+
+        total_reffered_student_cr_month = CustomUser.objects.filter(
+            reffered_by_id__in=all_reffered_promoter,
+            usertype="STUDENT",
+            created_at__gte=current_month_start
+        ).count()
+
+        # ---------- PERFORMANCE DATA (MONTH WISE - CURRENT YEAR) ----------
+        monthly_totals = defaultdict(Decimal)
+
+        transactions = Transactions.objects.filter(
+            user=user,
+            current_status="APPROVED",
+            request_type="CR",
+            created_at__year=current_year
+        )
+
+        for tx in transactions:
+            month_label = tx.created_at.strftime("%b %y")
+            monthly_totals[month_label] += Decimal(tx.transaction_amt or "0")
+
+        performance_data = []
+        for m in range(1, 13):
+            label = datetime(current_year, m, 1).strftime("%b %y")
+            performance_data.append({
+                "month": label,
+                "earnings": float(monthly_totals.get(label, 0))
+            })
+
+        # ---------- TOTAL EARNING (YEAR) ----------
+        year_tx_qs = Transactions.objects.filter(
+            user=user,
+            current_status="APPROVED",
+            request_type="CR",
+            created_at__year=current_year
+        )
+
+        total_earn_in_year = sum(
+            Decimal(tx.transaction_amt or "0") for tx in year_tx_qs
+        )
+
+        # ---------- TOTAL EARNING (MONTH) ----------
+        month_tx_qs = Transactions.objects.filter(
+            user=user,
+            current_status="APPROVED",
+            request_type="CR",
+            created_at__year=current_year,
+            created_at__month=current_month
+        )
+
+        total_earn_in_month = sum(
+            Decimal(tx.transaction_amt or "0") for tx in month_tx_qs
+        )
+
+        # ---------- WALLET ----------
+        wallet = Wallet.objects.filter(user=user).first()
+        current_wallet_amount = wallet.current_wallet_amount if wallet else 0
+        earn_amount = wallet.earn_amount if wallet else 0
+
+        # ---------- RESPONSE ----------
+        return Response({
+            "user_id": user.id,
+            "referalcode": user.referalcode,
+
+            "total_referrals_current_month": referral_count_month,
+            "total_reffered_student_cr_month":total_reffered_student_cr_month,
+            "total_promoters": total_promoters,
+            "total_active_promoters": total_active_promoters,
+            "total_reffered_student": total_reffered_student,
+
+            "current_wallet_amount": float(current_wallet_amount or 0),
+            "earn_amount": float(earn_amount or 0),
+            "total_earn_in_year": float(total_earn_in_year),
+            "total_earn_in_month": float(total_earn_in_month),
+
+            "performanceData": performance_data,
         })
