@@ -50,6 +50,7 @@ from rest_framework.response import Response
 from calendar import monthrange
 from ems.models import *
 from decimal import Decimal
+from django.db.models import Q
 
 # for the duplicate
 class CheckDuplicateEmail(APIView):
@@ -904,6 +905,25 @@ class GetCpDashboard(APIView):
         current_month = today.month
         current_month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
+        recent_5_referrals = list(
+            CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                usertype = "PROMOTER"
+            )
+
+            .order_by("-created_at")[:5]
+            .values("id", "fullname", "is_active","created_at")
+        )
+
+        recent_10_tranaction= list(
+            Transactions.objects.filter(
+                user_id=user_id,
+            )
+
+            .order_by("-created_at")[:10]
+            .values("id", "user__fullname", "request_type","current_status","transactionId","transaction_amt","transaction_from","created_at")
+        )
+
         # 🔹 Current month promoter referrals
         referral_count_month = CustomUser.objects.filter(
             reffered_by_id=user_id,
@@ -950,6 +970,42 @@ class GetCpDashboard(APIView):
             request_type="CR",
             created_at__year=current_year
         )
+        
+
+        if current_month == 12:
+            current_month_end = today.replace(
+                year=current_year + 1, month=1, day=1,
+                hour=0, minute=0, second=0, microsecond=0
+            )
+        else:
+            current_month_end = today.replace(
+                month=current_month + 1, day=1,
+                hour=0, minute=0, second=0, microsecond=0
+            )
+        top_5_promoters = (
+                    CustomUser.objects.filter(
+                        reffered_by_id=user_id,
+                        usertype="PROMOTER"
+                    )
+                    .annotate(
+                        student_count=Count(
+                            "customuser_reffered_by",
+                            filter=Q(
+                                customuser_reffered_by__usertype="STUDENT",
+                                customuser_reffered_by__created_at__gte=current_month_start,
+                                customuser_reffered_by__created_at__lt=current_month_end,
+                            )
+                        )
+                    )
+                    .order_by("-student_count")[:5]
+                    .values(
+                        "id",
+                        "fullname",
+                        "student_count",
+                        "is_active"
+                    )
+                )
+
 
         for tx in transactions:
             month_label = tx.created_at.strftime("%b %y")
@@ -958,9 +1014,35 @@ class GetCpDashboard(APIView):
         performance_data = []
         for m in range(1, 13):
             label = datetime(current_year, m, 1).strftime("%b %y")
+
+            # Month start & end
+            month_start = datetime(current_year, m, 1)
+            if m == 12:
+                month_end = datetime(current_year + 1, 1, 1)
+            else:
+                month_end = datetime(current_year, m + 1, 1)
+
+            # 🔹 Month-wise promoter referral
+            total_referred_promoter = CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                usertype="PROMOTER",
+                created_at__gte=month_start,
+                created_at__lt=month_end
+            ).count()
+
+            # 🔹 Month-wise student referral (via promoters)
+            total_referred_student = CustomUser.objects.filter(
+                reffered_by_id__in=all_reffered_promoter,
+                usertype="STUDENT",
+                created_at__gte=month_start,
+                created_at__lt=month_end
+            ).count()
+
             performance_data.append({
                 "month": label,
-                "earnings": float(monthly_totals.get(label, 0))
+                "earnings": float(monthly_totals.get(label, 0)),
+                "promoters": total_referred_promoter,
+                "students": total_referred_student,
             })
 
         # ---------- TOTAL EARNING (YEAR) ----------
@@ -1003,6 +1085,8 @@ class GetCpDashboard(APIView):
             "total_promoters": total_promoters,
             "total_active_promoters": total_active_promoters,
             "total_reffered_student": total_reffered_student,
+            "recent_5_referrals":recent_5_referrals,
+            "recent_10_tranaction":recent_10_tranaction,
 
             "current_wallet_amount": float(current_wallet_amount or 0),
             "earn_amount": float(earn_amount or 0),
@@ -1010,4 +1094,5 @@ class GetCpDashboard(APIView):
             "total_earn_in_month": float(total_earn_in_month),
 
             "performanceData": performance_data,
+            "top_5_promoters": top_5_promoters,
         })
