@@ -104,7 +104,7 @@ class SendOTPAPIView(APIView):
         # Extract email and username
         email = request.data.get('email')
         fullname = request.data.get('fullname')
-        support_email = "info@giminiplanatoriam.com"
+        support_email = "info@geminiplanetarium.com"
         
 
         # Validate email and username
