@@ -50,6 +50,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     bkp_deleted_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Deletor")
     bkp_created_by      = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Created By")
     bkp_modified_by     = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Modified By")
+    pincode             = models.CharField(max_length=6, null=True, blank=True, verbose_name="CustomUser Pincode")
+    address             = models.TextField(null=True, blank=True, verbose_name="CustomUser Address")
 
 
     USERNAME_FIELD = "email"

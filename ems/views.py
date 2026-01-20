@@ -175,6 +175,8 @@ class VerifyOTPAPIView(APIView):
         school_name = request.data.get('school_name')
         fullname = request.data.get('fullname')
         usertype = request.data.get('usertype')
+        pincode = request.data.get('pincode')
+        address = request.data.get('address')
         dob = request.data.get('dob')
         mobilenumber = request.data.get('mobilenumber')
         refered_code = request.data.get('refered_code',None)
@@ -203,7 +205,9 @@ class VerifyOTPAPIView(APIView):
                     fullname=fullname,
                     dob=dob,
                     usertype=usertype,
-                    refered_code = refered_code
+                    refered_code = refered_code,
+                    address=address,
+                    pincode=pincode,
                     )
                 print("second")
                 
