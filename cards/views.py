@@ -522,8 +522,19 @@ class GetQuizUpcomingData(APIView):
 
     def get(self, request):
         user = request.user
+        dob = request.user.dob
 
         now = timezone.now()
+        today = timezone.now().date()
+        if dob:
+            age = (
+                today.year
+                - dob.year
+                - ((today.month, today.day) < (dob.month, dob.day))
+            )
+        else:
+            age = 0
+        print("age--",age)
         after_24_hours = now + timedelta(hours=24)
 
         participated_quiz_ids = QuizParticipant.objects.filter(
@@ -531,13 +542,16 @@ class GetQuizUpcomingData(APIView):
         ).values_list("quiz_id", flat=True)
 
         quizzes = Quiz.objects.filter(
-            is_deleted=False,
-            quiz_date__gt=after_24_hours
-        ).exclude(
-            id__in=participated_quiz_ids
-        ).select_related(
-            'user', 'created_by', 'modified_by', 'deleted_by'
-        ).order_by('-quiz_date')
+                    is_deleted=False,
+                    quiz_date__gt=after_24_hours,
+                    age_grup__lte=age,   # age_from <= age
+                    age_to__gte=age,     # age_to >= age
+                ).exclude(
+                    # id__in=participated_quiz_ids
+                ).select_related(
+                    'user', 'created_by', 'modified_by', 'deleted_by'
+                ).order_by('-quiz_date')
+
        
         # ---------- APPLY PAGINATION ----------
         paginator = MyPageNumberPagination()
