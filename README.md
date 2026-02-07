@@ -38,7 +38,7 @@ pip install -r requirements.txt
 # pip freeze > requirements.txt
 
 # Create tables, user and collect statics
-python manage.py makemigrations ems cards
+python manage.py makemigrations ems cards schemes
 
 
 python manage.py migrate

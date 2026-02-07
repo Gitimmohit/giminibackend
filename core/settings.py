@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'ems',
     'cards',
+    'schemes'
 ]
 
 MIDDLEWARE = [
