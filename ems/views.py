@@ -866,6 +866,7 @@ class GetDashboardDetails(APIView):
         quiz_qs = Quiz.objects.filter(
             is_deleted=False,
             is_completed=False,
+            is_demo_quiz = False,
             quiz_date__gte=timezone.now()
         ).order_by("quiz_date")[:5]
 
@@ -876,6 +877,7 @@ class GetDashboardDetails(APIView):
             "user_id": user.id,
             "referalcode": user.referalcode,
             "total_referrals": referral_count,
+            "is_demo_done": user.is_demo_done,
 
             # SALES only extras
             "total_referrals_current_month": referral_count_month if filter_type == "SALES" else 0,
@@ -1083,6 +1085,7 @@ class GetCpDashboard(APIView):
         return Response({
             "user_id": user.id,
             "referalcode": user.referalcode,
+            "is_demo_done": user.is_demo_done,
 
             "total_referrals_current_month": referral_count_month,
             "total_reffered_student_cr_month":total_reffered_student_cr_month,
@@ -1100,3 +1103,49 @@ class GetCpDashboard(APIView):
             "performanceData": performance_data,
             "top_5_promoters": top_5_promoters,
         })
+    
+
+class SendApproval(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        user = request.data.get("user")
+        fullname = request.data.get("fullname")
+        if not email:
+            return Response(
+                {"error": "Select Valid User"},
+                status=400
+            )
+
+        try:
+            email_body = render_to_string(
+                "confirmReg.html",
+                {
+                    "recipient_name": fullname,
+                    "support_email":"info@geminiplanetarium.com",
+                },
+            )
+
+            plain_message = strip_tags(email_body)
+
+            send_mail(
+                subject="Account Approval Mail",
+                message=plain_message,
+                from_email="",
+                recipient_list=[email],
+                fail_silently=False,  # Important
+                html_message=email_body,
+            )
+            CustomUser.objects.filter(id = user).update(mail_sended=True)
+
+            return Response({
+                "status": True,
+                "message": "Mail Send"
+            })
+
+        except Exception as e:
+            print("eroor",e)
+            return Response({
+                "status": False,
+                "error": "Failed to send email",
+                "details": str(e)  # helpful for debugging
+            }, status=500)

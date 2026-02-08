@@ -25,5 +25,7 @@ urlpatterns = [
     path('get_user_bank_details/',GetUserBankDetails.as_view()),
     path('get_dashboard_details/',GetDashboardDetails.as_view()),
 
+    path('sendapprovalmail/',SendApproval.as_view()),
+    
     path('get_cp_dashboard/',GetCpDashboard.as_view()),
 ]

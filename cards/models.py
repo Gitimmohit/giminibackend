@@ -125,6 +125,7 @@ class Quiz(models.Model):
     age_to       = models.CharField(max_length=2,blank=True , null=True , verbose_name='age_to')
     prize_money  = models.TextField(blank=True , null=True ,verbose_name='Prize Money')
     entry_fee    = models.DecimalField(max_digits=11,decimal_places=2,default=0,verbose_name='Entry Fee')
+    is_demo_quiz = models.BooleanField(null=True,default=False)
     is_completed = models.BooleanField(default=False,verbose_name="Is Completed",null=True,blank=True,)
     
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)

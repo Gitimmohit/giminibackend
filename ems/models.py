@@ -26,6 +26,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     password_changed_date = models.DateTimeField(blank=True, null=True)
     is_superuser        = models.BooleanField(default=False)
     is_approved         = models.BooleanField(default=False)
+    mail_sended         = models.BooleanField(default=False)
     first_login         = models.BooleanField(default=False)
     is_active           = models.BooleanField(default=True) 
     is_payment          = models.BooleanField(default=False) 
@@ -52,6 +53,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     bkp_modified_by     = models.CharField(max_length=100, null=True, blank=True, verbose_name="CustomUser_Backup Modified By")
     pincode             = models.CharField(max_length=6, null=True, blank=True, verbose_name="CustomUser Pincode")
     address             = models.TextField(null=True, blank=True, verbose_name="CustomUser Address")
+    is_demo_done        = models.BooleanField(null=True, default=False,blank=True, verbose_name="Demo Quiz")
 
 
     USERNAME_FIELD = "email"
