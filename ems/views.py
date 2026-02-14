@@ -33,7 +33,7 @@ from cards.mypaginations import MyPageNumberPagination
 from core.utils import hitby_user 
 from django.core.mail import EmailMultiAlternatives
 from django.shortcuts import get_object_or_404
-
+from django.db.models import F
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -346,6 +346,8 @@ class PutUserDetails(APIView):
         )
         
         instance = CustomUser.objects.get(id=pk) 
+        old_is_approved = instance.is_approved
+        new_is_approved = request.data.get("is_approved")
         if request.data.get('is_approved') and not instance.reffered_amt_credit:
             data['reffered_amt_credit'] = True
             
@@ -485,10 +487,32 @@ class PutUserDetails(APIView):
         if serializer.is_valid():
 
             serializer.save(modified_by=modified_by, bkp_modified_by=bkp_modified_by, modified_at=timezone.now())
+
+            # Convert string to boolean if coming from frontend
+            if isinstance(new_is_approved, str):
+                new_is_approved = new_is_approved.lower() == "true"
+            if (
+                instance.usertype == "ASTRO WEALTH"
+                and instance.reffered_by
+                and new_is_approved is not None
+            ):
+
+                parent = instance.reffered_by
+
+                if old_is_approved == new_is_approved:
+                    pass
+
+                elif not old_is_approved and new_is_approved:
+                    parent.total_direct = F("total_direct") + 1
+                    parent.save(update_fields=["total_direct"])
+
+                elif old_is_approved and not new_is_approved:
+                    parent.total_direct = max(parent.total_direct - 1, 0)
+                    parent.save(update_fields=["total_direct"])
+
             return Response({"status": "success", "data": serializer.data}, status=status.HTTP_200_OK)
         else:
-            print("User serializer.errors", serializer.errors)
-            return Response({"status": "error", "data": serializer.errors},)
+            return Response({"status": "error", "data": serializer.errors})
 
 class DeleteUserDetails(APIView):
     permission_classes = [IsAuthenticated]

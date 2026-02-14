@@ -55,6 +55,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     address             = models.TextField(null=True, blank=True, verbose_name="CustomUser Address")
     is_demo_done        = models.BooleanField(null=True, default=False,blank=True, verbose_name="Demo Quiz")
 
+    total_direct = models.IntegerField(default=0)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -63,6 +64,17 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    
+class ReferralCommissionConfig(models.Model):
+    LEVEL_CHOICES = [(i, f"Level {i}") for i in range(1, 7)]
+
+    level = models.PositiveSmallIntegerField(choices=LEVEL_CHOICES, unique=True)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    min_direct_required = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"L{self.level} - {self.percentage}%"
+
     
 class OTPRecord(models.Model):
     email   = models.EmailField(null=True, blank=True, )
