@@ -460,7 +460,7 @@ class AddQuizDetails(APIView):
         
 class GetQuizDetails(ListAPIView):
     permission_classes = [IsAuthenticated]
-    queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False,is_demo_quiz = False).order_by('-id')
+    queryset = Quiz.objects.select_related('user','created_by','modified_by','deleted_by').filter(is_deleted=False).order_by('-id')
     serializer_class = QuizSerializer
     pagination_class = MyPageNumberPagination
     filter_backends = [SearchFilter]
@@ -522,11 +522,13 @@ class GetQuizUpcomingData(APIView):
 
     def get(self, request):
         user = request.user
-        is_demo_done = request.user.is_demo_done
-        dob = request.user.dob
-        print("dob--",dob)
+        is_demo_done = user.is_demo_done
+        dob = user.dob
+
         now = timezone.now()
-        today = timezone.now().date()
+        today = now.date()
+
+        # ✅ AGE CALCULATION
         if dob:
             age = (
                 today.year
@@ -535,36 +537,47 @@ class GetQuizUpcomingData(APIView):
             )
         else:
             age = 0
-        print("age--",age)
-        after_24_hours = now + timedelta(minutes=5)
 
+        # ✅ UPCOMING TIME WINDOW
+        after_5_minutes = now + timedelta(minutes=5)
+
+        # ✅ PARTICIPATED QUIZ IDS
         participated_quiz_ids = QuizParticipant.objects.filter(
             user=user
         ).values_list("quiz_id", flat=True)
-        print("age--",age)
-        quizzes = Quiz.objects.annotate(
-                                            age_grup_int=Cast('age_grup', IntegerField()),
-                                            age_to_int=Cast('age_to', IntegerField()),
-                                        ).filter(
-                                            is_deleted=False,
-                                            age_grup_int__lte=age,
-                                            age_to_int__gte=age,
-                                        ).filter(
-                                            Q(is_demo_quiz=True) | Q(is_demo_quiz=False, quiz_date__gt=after_24_hours)
-                                        )
 
-        # 👇 Apply only if demo already done
+        # ✅ BASE QUERY (AGE FILTER)
+        quizzes = Quiz.objects.filter(
+            is_deleted=False,
+            age_grup__lte=age,
+            age_to__gte=age,
+        )
+
+        # ✅ DEMO + UPCOMING FILTER
+        quizzes = quizzes.filter(
+            Q(is_demo_quiz=True) |
+            Q(
+                is_demo_quiz=False,
+                quiz_date__isnull=False,
+                quiz_date__gt=after_5_minutes
+            )
+        )
+
+        # ✅ IF DEMO ALREADY DONE → HIDE DEMO QUIZ
         if is_demo_done:
             quizzes = quizzes.exclude(is_demo_quiz=True)
 
+        # ✅ REMOVE PARTICIPATED QUIZZES
         quizzes = quizzes.exclude(
             id__in=participated_quiz_ids
-        ).select_related(
-            'user', 'created_by', 'modified_by', 'deleted_by'
-        ).order_by('-is_demo_quiz','-quiz_date')
+        )
 
-       
-        # ---------- APPLY PAGINATION ----------
+        # ✅ ORDERING (DEMO FIRST, THEN DATE)
+        quizzes = quizzes.select_related(
+            'user', 'created_by', 'modified_by', 'deleted_by'
+        ).order_by('-is_demo_quiz', 'quiz_date')
+
+        # ✅ PAGINATION
         paginator = MyPageNumberPagination()
         paginated_quizzes = paginator.paginate_queryset(quizzes, request)
         serializer = QuizSerializer(paginated_quizzes, many=True)
@@ -574,7 +587,6 @@ class GetQuizUpcomingData(APIView):
             "count": quizzes.count(),
             "upcoming_quizzes": serializer.data
         })
-
 
 
 
