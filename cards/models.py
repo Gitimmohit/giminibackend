@@ -126,6 +126,7 @@ class Quiz(models.Model):
     prize_money  = models.TextField(blank=True , null=True ,verbose_name='Prize Money')
     entry_fee    = models.DecimalField(max_digits=11,decimal_places=2,default=0,verbose_name='Entry Fee')
     is_demo_quiz = models.BooleanField(null=True,default=False)
+    is_ticket = models.BooleanField(null=True,default=False)
     is_completed = models.BooleanField(default=False,verbose_name="Is Completed",null=True,blank=True,)
     
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
@@ -161,6 +162,7 @@ class Transactions(models.Model):
     transaction_file   = models.FileField(upload_to=transaction_file_path, default="")
 
     is_first_transaction   = models.BooleanField(default=False,verbose_name="First Transaction",null=True,blank=True,)
+    mail_sended   = models.BooleanField(default=False,verbose_name="Mail Sended",null=True,blank=True,)
     is_transaction_complete   = models.BooleanField(default=False,verbose_name="Transaction Complication",null=True,blank=True,)
     is_deleted   = models.BooleanField(default=False,verbose_name="Is Deleted",null=True,blank=True,)
     deleted_by   = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True,blank=True, related_name="Transactions_deletor")
@@ -218,3 +220,13 @@ class website(models.Model):
     price_distributed=models.CharField(max_length=100,blank=True, null=True)
     total_price_value=models.CharField(max_length=100,blank=True, null=True)
     next_quiz_startdate=models.DateTimeField(max_length=100,blank=True, null=True)
+
+
+class Ticket(models.Model): 
+    user                = models.ForeignKey(CustomUser, blank=True, on_delete=models.CASCADE, null=True)
+    earned_from         = models.CharField(max_length=200,null=True, blank=True)
+    ticket_number       = models.CharField(unique=True,max_length=200,null=True, blank=True)
+    issued_date         = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    redeem_requested    = models.BooleanField(default=False,verbose_name="Is Redeem",null=True,blank=True,)
+    is_redeem           = models.BooleanField(default=False,verbose_name="Is Redeem",null=True,blank=True,)
+    used_date           = models.DateTimeField(null=True, blank=True)

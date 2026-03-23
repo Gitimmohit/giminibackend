@@ -57,4 +57,12 @@ urlpatterns = [
     path("webinfo/", GetWebInfoView.as_view()),
 
     path("dashboardAdmin/", GetDashBoardInfo.as_view()),
+    path("transapprovalmail/", SendApproval.as_view()),
+
+# for the ticket reedem request
+    path("ticketinfo/", GetAllTicket.as_view()),
+    path("redeem_ticket/<int:pk>", RedeemRequest.as_view()),
+    path("redeem_approved_ticket/<int:pk>", RedeemRequest.as_view()),
+
+
 ]

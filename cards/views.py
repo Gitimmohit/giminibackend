@@ -37,7 +37,19 @@ from django.db import transaction
 from django.db.models import Count, Q, Min, F,Max
 from django.db.models import IntegerField
 from decimal import Decimal
+import random
+import string
 
+
+
+def generate_unique_referral_code():
+    characters = string.ascii_uppercase + string.digits  # A-Z + 0-9
+    
+    while True:
+        code = ''.join(random.choices(characters, k=10))  # 10-character alphanumeric
+        
+        if not Ticket.objects.filter(ticket_number=code).exists():
+            return code
 
  
 class AddContactDetails(APIView):
@@ -1089,6 +1101,7 @@ class AddQuizParticipant(APIView):
         try:
             created_by, bkp_created_by = hitby_user(self,request) 
             quiz_amount=  request.data.get('quiz_amount') 
+            quiz_id=  request.data.get('quiz') 
             serializer = QuizParticipantSerializer(data=request.data)
             if serializer.is_valid():
                 question_instance = serializer.save(participating_date=timezone.now()) 
@@ -1109,12 +1122,22 @@ class AddQuizParticipant(APIView):
                     wallet.current_wallet_amount -= quiz_amount
                     wallet.save()
 
+                quiz_info = Quiz.objects.filter(id=quiz_id).first()
+                if quiz_info.is_ticket:
+                    ticket_number = generate_unique_referral_code()
+                    Ticket.objects.create(
+                        user = created_by,
+                        earned_from = "QUIZ",
+                        issued_date=timezone.now(),
+                        is_redeem = False,
+                        ticket_number = ticket_number
+                    )
+
                 return Response({"message": "Quiz Participate successfully!","data": serializer.data}, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             print("error --- ",e)
             return Response({"error": "Something went wrong!","details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            return Response({"status": "error","message": "Invalid data in one or more rows.","errors": serializer.errors,"total_records": total_records,"saved_count": 0},status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -1273,3 +1296,113 @@ class GetDashBoardInfo(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+class SendApproval(APIView):
+    def post(self, request):
+        email = request.data.get("email")
+        id = request.data.get("id")
+        fullname = request.data.get("fullname")
+        transactionId = request.data.get("transactionId")
+        transaction_amt = request.data.get("transaction_amt")
+        request_type = request.data.get("request_type")
+        if not email:
+            return Response(
+                {"error": "Select Valid User"},
+                status=400
+            )
+
+        try:
+            if request_type == "CR":
+                email_body = render_to_string(
+                    "AddconfirmTranc.html",
+                    {
+                        "recipient_name": fullname,
+                        "transactionId":transactionId,
+                        "transaction_amt":transaction_amt,
+                        "support_email":"info@geminiplanetarium.com",
+                    },
+                )
+            else:
+                email_body = render_to_string(
+                    "WithDrawnconfirmTranc.html",
+                    {
+                        "recipient_name": fullname,
+                        "transactionId":transactionId,
+                        "transaction_amt":transaction_amt,
+                        "support_email":"info@geminiplanetarium.com",
+                    },
+                )
+
+
+            plain_message = strip_tags(email_body)
+            print("email--",email)
+            send_mail(
+                subject="Transaction Confirmed - Gimini Planetarium",
+                message=plain_message,
+                from_email="",
+                recipient_list=[email],
+                fail_silently=False,  # Important
+                html_message=email_body,
+            )
+            Transactions.objects.filter(id = id).update(mail_sended=True)
+
+            return Response({
+                "status": True,
+                "message": "Mail Send"
+            })
+
+        except Exception as e:
+            print("eroor",e)
+            return Response({
+                "status": False,
+                "error": "Failed to send email",
+                "details": str(e)  # helpful for debugging
+            }, status=500)
+
+
+
+class GetAllTicket(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Ticket.objects.select_related('user').filter().order_by('-id')
+    serializer_class = TicketSerializer
+    pagination_class = MyPageNumberPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['user__fullname', 'earned_from', 'ticket_number', 'issued_date', 'redeem_requested','is_redeem']
+ 
+    def get_queryset(self):
+        filter_type = self.request.query_params.get('filter_type',None)
+
+        filters = {}
+        if filter_type == "USER":
+            filters['user_id'] = self.request.user.id
+            filters['is_redeem'] = False
+
+        queryset = self.queryset.filter(**filters)
+        return queryset
+    
+
+class RedeemRequest(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        is_ticket = self.request.data.get('is_ticket',None)
+        try:
+            obj = Ticket.objects.get(id=pk)
+        except Ticket.DoesNotExist:
+            return Response(
+                {"error": "Ticket info not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        data = request.data
+        if is_ticket:
+            data['used_date']=timezone.now()
+        serializer = TicketSerializer(obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save(used_date = timezone.now())
+            return Response(
+                {"message": "Ticket info updated successfully", "data": serializer.data},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+

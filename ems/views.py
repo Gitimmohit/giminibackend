@@ -900,6 +900,7 @@ class GetDashboardDetails(APIView):
         return Response({
             "user_id": user.id,
             "referalcode": user.referalcode,
+            "reffered_by_name": user.reffered_by.fullname if user.reffered_by else "",
             "total_referrals": referral_count,
             "is_demo_done": user.is_demo_done,
 

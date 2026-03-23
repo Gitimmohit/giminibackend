@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Transaction Confirmed - Gimini Planetarium</title>
+</head>
+
+<body style="font-family: Arial, sans-serif; background: #f6f6f6; margin: 0; padding: 0;">
+
+  <div
+    style="max-width: 600px; margin: 30px auto; background: #ffffff; padding: 25px; border-radius: 8px; border: 1px solid #e5e7eb;">
+
+    <!-- Header -->
+    <h2 style="margin: 0; color: #111827; font-size: 20px;">✨ Gimini Planetarium</h2>
+    <p style="color: #6b7280; margin-top: 4px;">Transaction Confirmation</p>
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;" />
+
+    <!-- Greeting -->
+    <p style="font-size: 14px; color: #374151;">
+      Hi <strong>{{ recipient_name }}</strong>,
+    </p>
+
+    <!-- Success Message -->
+    <p style="font-size: 14px; color: #374151;">
+      ✅ <strong>Your transaction has been successfully completed!</strong>
+    </p>
+
+    <!-- Transaction Details Box -->
+    <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+      <h3 style="margin: 0 0 15px 0; color: #111827; font-size: 16px;">📋 Transaction Details</h3>
+      
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Transaction ID:</td>
+          <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: bold;">{{ transactionId }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Amount:</td>
+          <td style="padding: 8px 0; color: #111827; font-size: 16px; font-weight: bold;">₹{{ transaction_amt }}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Status:</td>
+          <td style="padding: 8px 0; color: #059669; font-size: 14px; font-weight: bold;">✓ Completed</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Date:</td>
+          <td style="padding: 8px 0; color: #111827; font-size: 14px;">{% now "F j, Y, g:i a" %}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Additional Info -->
+    <p style="font-size: 14px; color: #374151;">
+      Thank you for your transaction! The amount has been successfully added to your account.
+    </p>
+
+    <!-- Help Text -->
+    <p style="font-size: 13px; color: #6b7280;">
+      If you have any questions about this transaction, please contact our support team.
+    </p>
+
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+
+    <!-- Support -->
+    <p style="font-size: 12px; color: #9ca3af;">
+      For assistance, contact us at
+      <a href="mailto:{{ support_email }}" style="color: #2563eb; text-decoration: none;">
+        {{ support_email }}
+      </a>
+    </p>
+
+  </div>
+
+  <!-- Footer -->
+  <p style="text-align:center; color:#9ca3af; font-size:12px; margin-top: 10px;">
+    © {% now "Y" %} Gimini Planetarium. All rights reserved.
+  </p>
+
+</body>
+
+</html>

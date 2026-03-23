@@ -54,6 +54,7 @@ class WalletSerializer(serializers.ModelSerializer):
 # -----------------------------
 class TransactionsSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.fullname",required=False)
+    user_email = serializers.CharField(source="user.email",required=False)
     user_type = serializers.CharField(source="user.usertype",required=False)
     class Meta:
         model = Transactions
@@ -99,4 +100,13 @@ class ContactUsSerializer(serializers.ModelSerializer):
 class WebsiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = website
+        fields = "__all__"
+
+# -----------------------------
+#  Ticket SERIALIZER
+# -----------------------------
+class TicketSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.fullname",required=False)
+    class Meta:
+        model = Ticket
         fields = "__all__"
