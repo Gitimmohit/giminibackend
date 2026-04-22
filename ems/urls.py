@@ -28,4 +28,5 @@ urlpatterns = [
     path('sendapprovalmail/',SendApproval.as_view()),
     
     path('get_cp_dashboard/',GetCpDashboard.as_view()),
+    path('get_salesmonitor_dashboard/',GetSalesMonitorDashboard.as_view()),
 ]

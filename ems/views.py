@@ -753,12 +753,39 @@ class GetDashboardDetails(APIView):
             current_month_start = today.replace(day=1)
             last_3_month_start = (today - relativedelta(months=3)).replace(day=1)
 
-            # 🔹 Current month referrals
-            referral_count_month = CustomUser.objects.filter(
+            # Get all promoters referred by this sales person
+            promoters_list = CustomUser.objects.filter(
                 reffered_by_id=user_id,
                 usertype="PROMOTER",
+                is_deleted=False
+            ).values_list('id', flat=True)
+
+            # Count 1: Direct Promoters (Sales → Promoter)
+            direct_promoter_count = CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                usertype="PROMOTER",
+                is_deleted=False,
                 created_at__gte=current_month_start
             ).count()
+
+            # Count 2: Direct Students (Sales → Student)
+            direct_student_count = CustomUser.objects.filter(
+                reffered_by_id=user_id,
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=current_month_start
+            ).count()
+
+            # Count 3: Indirect Students (Promoter → Student) - yeh bhi sales person ko credit hoga
+            indirect_student_count = CustomUser.objects.filter(
+                reffered_by_id__in=promoters_list,  # Student referred by any promoter of this sales person
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=current_month_start
+            ).count()
+
+            # Total referrals for this sales person
+            referral_count_month = direct_promoter_count + direct_student_count + indirect_student_count
 
             # 🔹 Total active promoters
             total_active_promoters = CustomUser.objects.filter(
@@ -1135,6 +1162,7 @@ class SendApproval(APIView):
         email = request.data.get("email")
         user = request.data.get("user")
         fullname = request.data.get("fullname")
+        user_type = request.data.get("user_type")
         if not email:
             return Response(
                 {"error": "Select Valid User"},
@@ -1145,6 +1173,7 @@ class SendApproval(APIView):
             email_body = render_to_string(
                 "confirmReg.html",
                 {
+                    "user_type":user_type,
                     "recipient_name": fullname,
                     "support_email":"info@geminiplanetarium.com",
                 },
@@ -1174,3 +1203,373 @@ class SendApproval(APIView):
                 "error": "Failed to send email",
                 "details": str(e)  # helpful for debugging
             }, status=500)
+
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from django.utils.timezone import make_aware
+from datetime import datetime
+from django.db.models import Q, Count
+import calendar
+
+
+class GetSalesMonitorDashboard(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = timezone.now()
+        current_year  = today.year
+        current_month = today.month
+
+        # ── Query params ────────────────────────────────────────────────────
+        try:
+            selected_month = int(request.query_params.get("month", current_month))
+            selected_year  = int(request.query_params.get("year",  current_year))
+            # Validate range
+            if not (1 <= selected_month <= 12):
+                selected_month = current_month
+            if not (2000 <= selected_year <= 2100):
+                selected_year = current_year
+        except (ValueError, TypeError):
+            selected_month = current_month
+            selected_year  = current_year
+
+        # ── Helper: get timezone-aware month range ───────────────────────────
+        def get_month_range(year, month):
+            start = make_aware(datetime(year, month, 1, 0, 0, 0))
+            if month == 12:
+                end = make_aware(datetime(year + 1, 1, 1, 0, 0, 0))
+            else:
+                end = make_aware(datetime(year, month + 1, 1, 0, 0, 0))
+            return start, end
+
+        # Selected month range (for performance table)
+        selected_month_start, selected_month_end = get_month_range(selected_year, selected_month)
+
+        # Current month range (for header stats, leaderboard, insights)
+        current_month_start, current_month_end = get_month_range(current_year, current_month)
+
+        MONTHLY_TARGET = 3000
+
+        # ── All Sales persons ────────────────────────────────────────────────
+        all_sales = list(CustomUser.objects.filter(
+            usertype="SALES",
+            is_deleted=False,
+            is_active=True
+        ))
+
+        sales_team = []
+        current_month_team = []
+
+        for sales in all_sales:
+
+            # All promoters ever referred by this sales person (base queryset)
+            direct_promoter_ids = list(
+                CustomUser.objects.filter(
+                    reffered_by_id=sales.id,
+                    usertype="PROMOTER",
+                    is_deleted=False
+                ).values_list("id", flat=True)
+            )
+
+            # ── SELECTED MONTH (performance table) ──────────────────────────
+
+            # Type 1: Sales → Promoter
+            sel_direct_promoter = CustomUser.objects.filter(
+                reffered_by_id=sales.id,
+                usertype="PROMOTER",
+                is_deleted=False,
+                created_at__gte=selected_month_start,
+                created_at__lt=selected_month_end
+            ).count()
+
+            # Type 2: Sales → Student
+            sel_direct_student = CustomUser.objects.filter(
+                reffered_by_id=sales.id,
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=selected_month_start,
+                created_at__lt=selected_month_end
+            ).count()
+
+            # Indirect: Promoter (under this sales) → Student
+            sel_indirect_student = CustomUser.objects.filter(
+                reffered_by_id__in=direct_promoter_ids,
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=selected_month_start,
+                created_at__lt=selected_month_end
+            ).count() if direct_promoter_ids else 0
+
+            sel_total      = sel_direct_promoter + sel_direct_student + sel_indirect_student
+            sel_percentage = round(min((sel_total / MONTHLY_TARGET) * 100, 100), 2)
+            sel_remaining  = max(MONTHLY_TARGET - sel_total, 0)
+
+            # ── CURRENT MONTH (header, leaderboard, insights) ────────────────
+
+            cur_direct_promoter = CustomUser.objects.filter(
+                reffered_by_id=sales.id,
+                usertype="PROMOTER",
+                is_deleted=False,
+                created_at__gte=current_month_start,
+                created_at__lt=current_month_end
+            ).count()
+
+            cur_direct_student = CustomUser.objects.filter(
+                reffered_by_id=sales.id,
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=current_month_start,
+                created_at__lt=current_month_end
+            ).count()
+
+            cur_indirect_student = CustomUser.objects.filter(
+                reffered_by_id__in=direct_promoter_ids,
+                usertype="STUDENT",
+                is_deleted=False,
+                created_at__gte=current_month_start,
+                created_at__lt=current_month_end
+            ).count() if direct_promoter_ids else 0
+
+            cur_total      = cur_direct_promoter + cur_direct_student + cur_indirect_student
+            cur_percentage = round(min((cur_total / MONTHLY_TARGET) * 100, 100), 2)
+            cur_remaining  = max(MONTHLY_TARGET - cur_total, 0)
+
+            # Active promoters (all time)
+            promoters_active = CustomUser.objects.filter(
+                reffered_by_id=sales.id,
+                usertype="PROMOTER",
+                is_deleted=False,
+                is_active=True
+            ).count()
+
+            # Avatar from name
+            name_parts = (sales.fullname or sales.email or "").strip().split()
+            avatar = "".join([p[0].upper() for p in name_parts[:2]]) if name_parts else "SP"
+
+            # ── Append to sales_team (selected month data) ───────────────────
+            sales_team.append({
+                "id":       sales.id,
+                "name":     sales.fullname or sales.email,
+                "avatar":   avatar,
+                "email":    sales.email,
+                "phone":    sales.mobilenumber or "",
+                "joinDate": sales.created_at.strftime("%Y-%m-%d") if sales.created_at else None,
+                "region":   getattr(sales, "region", "N/A") or "N/A",
+
+                # Selected month — used in performance table
+                "directReferrals": {
+                    "promoter": sel_direct_promoter,
+                    "student":  sel_direct_student,
+                    "total":    sel_direct_promoter + sel_direct_student,
+                },
+                "indirectReferrals": sel_indirect_student,
+                "totalReferrals":    sel_total,
+                "target":            MONTHLY_TARGET,
+                "percentage":        sel_percentage,
+                "remaining":         sel_remaining,
+                "status":            "Achieved" if sel_total >= MONTHLY_TARGET else "In Progress",
+                "promotersActive":   promoters_active,
+
+                # Current month — for detail panel reference
+                "currentMonthReferrals":  cur_total,
+                "currentMonthPercentage": cur_percentage,
+
+                "totalEarnings":  0,   # plug in your Earnings model here
+                "conversionRate": 0,   # plug in your conversion logic here
+            })
+
+            # ── Append to current_month_team (always real-time) ──────────────
+            current_month_team.append({
+                "id":              sales.id,
+                "name":            sales.fullname or sales.email,
+                "avatar":          avatar,
+                "email":           sales.email,
+                "region":          getattr(sales, "region", "N/A") or "N/A",
+                "totalReferrals":  cur_total,
+                "percentage":      cur_percentage,
+                "remaining":       cur_remaining,
+                "promotersActive": promoters_active,
+                "status":          "Achieved" if cur_total >= MONTHLY_TARGET else "In Progress",
+            })
+
+        # ── Header stats (always current month) ────────────────────────────
+        total_team_referrals_current = sum(p["totalReferrals"] for p in current_month_team)
+        active_promoters_total       = sum(p["promotersActive"] for p in current_month_team)
+        total_team_earnings          = sum(p["totalEarnings"] for p in sales_team)
+
+        team_target = len(current_month_team) * MONTHLY_TARGET
+        team_goal_pct = round(
+            (total_team_referrals_current / team_target) * 100, 2
+        ) if team_target > 0 else 0
+
+        # ── Top performers (current month, top 3) ──────────────────────────
+        sorted_current = sorted(current_month_team, key=lambda x: x["totalReferrals"], reverse=True)
+        top_performers = sorted_current[:3]
+
+        # ── Leaderboard (current month, all ranked) ─────────────────────────
+        leaderboard = [
+            {**person, "rank": idx + 1}
+            for idx, person in enumerate(sorted_current)
+        ]
+
+        # ── Analytics insights (current month) ─────────────────────────────
+        team_avg = round(
+            total_team_referrals_current / len(current_month_team), 0
+        ) if current_month_team else 0
+
+        needs_improvement = len([p for p in current_month_team if p["percentage"] < 50])
+
+        # ── Performance chart — last 6 months (fixed loop) ──────────────────
+        performance_data = []
+
+        for i in range(5, -1, -1):  # 5,4,3,2,1,0  → oldest→newest
+            # Correct month calculation
+            # Go back i months from current month
+            month_offset = current_month - i
+            chart_year   = current_year
+            if month_offset <= 0:
+                month_offset += 12
+                chart_year   -= 1
+
+            chart_start, chart_end = get_month_range(chart_year, month_offset)
+
+            # Sum across all sales persons for this month
+            month_direct_promoter  = 0
+            month_direct_student   = 0
+            month_indirect_student = 0
+
+            for sales in all_sales:
+                dp_ids = list(
+                    CustomUser.objects.filter(
+                        reffered_by_id=sales.id,
+                        usertype="PROMOTER",
+                        is_deleted=False
+                    ).values_list("id", flat=True)
+                )
+
+                month_direct_promoter += CustomUser.objects.filter(
+                    reffered_by_id=sales.id,
+                    usertype="PROMOTER",
+                    is_deleted=False,
+                    created_at__gte=chart_start,
+                    created_at__lt=chart_end
+                ).count()
+
+                month_direct_student += CustomUser.objects.filter(
+                    reffered_by_id=sales.id,
+                    usertype="STUDENT",
+                    is_deleted=False,
+                    created_at__gte=chart_start,
+                    created_at__lt=chart_end
+                ).count()
+
+                if dp_ids:
+                    month_indirect_student += CustomUser.objects.filter(
+                        reffered_by_id__in=dp_ids,
+                        usertype="STUDENT",
+                        is_deleted=False,
+                        created_at__gte=chart_start,
+                        created_at__lt=chart_end
+                    ).count()
+
+            month_total = month_direct_promoter + month_direct_student + month_indirect_student
+
+            performance_data.append({
+                "month":    calendar.month_abbr[month_offset],
+                "year":     chart_year,
+                "referral": month_total,
+                "target":   len(all_sales) * MONTHLY_TARGET,
+                "breakdown": {
+                    "directPromoter": month_direct_promoter,
+                    "directStudent":  month_direct_student,
+                    "indirect":       month_indirect_student,
+                }
+            })
+
+        # ── Recent referrals (last 10, current month, with credit info) ──────
+        recent_users = list(
+            CustomUser.objects.filter(
+                is_deleted=False,
+                created_at__gte=current_month_start,
+                created_at__lt=current_month_end,
+            )
+            .exclude(usertype="SALES")
+            .select_related("reffered_by", "reffered_by__reffered_by")
+            .order_by("-created_at")[:10]
+        )
+
+        recent_referrals = []
+        for user in recent_users:
+            credited_sales_id   = None
+            credited_sales_name = None
+
+            referrer = user.reffered_by
+            if referrer:
+                if referrer.usertype == "SALES":
+                    # Direct referral
+                    credited_sales_id   = referrer.id
+                    credited_sales_name = referrer.fullname or referrer.email
+                elif referrer.usertype == "PROMOTER" and referrer.reffered_by:
+                    # Indirect: student referred by promoter → credit promoter's sales
+                    if referrer.reffered_by.usertype == "SALES":
+                        credited_sales_id   = referrer.reffered_by.id
+                        credited_sales_name = referrer.reffered_by.fullname or referrer.reffered_by.email
+
+            recent_referrals.append({
+                "id":                 user.id,
+                "fullname":           user.fullname or user.email,
+                "usertype":           user.usertype,
+                "created_at":         user.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "is_active":          user.is_active,
+                "credited_sales_id":  credited_sales_id,
+                "credited_sales_name": credited_sales_name,
+            })
+
+        # ── Response ─────────────────────────────────────────────────────────
+        return Response({
+            # Header (always current month)
+            "totalTeamReferrals":   total_team_referrals_current,
+            "activePromotersTotal": active_promoters_total,
+            "totalTeamEarnings":    total_team_earnings,
+
+            # Performance table (selected month)
+            "salesTeam": sales_team,
+
+            # Team goal (current month)
+            "teamGoal": {
+                "total":      total_team_referrals_current,
+                "target":     team_target,
+                "percentage": team_goal_pct,
+            },
+
+            # Overview
+            "topPerformers":   top_performers,
+            "recentReferrals": recent_referrals,
+
+            # Chart (last 6 months, always real dates)
+            "performanceData": performance_data,
+
+            # Leaderboard (current month)
+            "leaderboard": leaderboard,
+
+            # Insights (current month)
+            "insights": {
+                "teamAverage":           int(team_avg),
+                "topPerformer":          leaderboard[0] if leaderboard else None,
+                "needsImprovementCount": needs_improvement,
+                "totalSalesPersons":     len(all_sales),
+                "monthlyTarget":         MONTHLY_TARGET,
+            },
+
+            # Meta
+            "selectedMonth": selected_month,
+            "selectedYear":  selected_year,
+            "currentMonth":  current_month,
+            "currentYear":   current_year,
+            "monthlyTarget": MONTHLY_TARGET,
+        })
